@@ -1,0 +1,173 @@
+import { FastifyInstance } from 'fastify'
+import { z } from 'zod'
+import { db } from '../db/client'
+import { incomeTransactions, payslipDetails, incomeCategories } from '../db/schema'
+import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
+import { authenticate } from '../middleware/authenticate'
+
+const transactionSchema = z.object({
+  amount: z.number().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  categoryId: z.number().int().positive(),
+  description: z.string().min(1).max(255),
+  notes: z.string().max(1000).optional(),
+  isPayslip: z.boolean().default(false),
+  payslip: z.object({
+    grossAmount: z.number().positive(),
+    netAmount: z.number().positive(),
+    contributions: z.number().min(0).default(0),
+    bonuses: z.number().min(0).default(0),
+    employerName: z.string().max(255).optional(),
+    periodLabel: z.string().max(100).optional(),
+  }).optional(),
+})
+
+const categorySchema = z.object({
+  name: z.string().min(1).max(100),
+  sortOrder: z.number().int().default(0),
+})
+
+export async function incomeRoutes(fastify: FastifyInstance) {
+  // List transactions
+  fastify.get('/api/income', { preHandler: [authenticate] }, async (req, reply) => {
+    const { page = '1', limit = '20', categoryId, from, to } = req.query as any
+    const householdId = (req.user as any).householdId
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+
+    const conditions = [eq(incomeTransactions.householdId, householdId)]
+    if (categoryId) conditions.push(eq(incomeTransactions.categoryId, parseInt(categoryId)))
+    if (from) conditions.push(gte(incomeTransactions.date, from))
+    if (to) conditions.push(lte(incomeTransactions.date, to))
+
+    const [rows, countRow] = await Promise.all([
+      db.select({
+        id: incomeTransactions.id,
+        amount: incomeTransactions.amount,
+        date: incomeTransactions.date,
+        categoryId: incomeTransactions.categoryId,
+        categoryName: incomeCategories.name,
+        description: incomeTransactions.description,
+        notes: incomeTransactions.notes,
+        isPayslip: incomeTransactions.isPayslip,
+        createdAt: incomeTransactions.createdAt,
+      })
+        .from(incomeTransactions)
+        .leftJoin(incomeCategories, eq(incomeTransactions.categoryId, incomeCategories.id))
+        .where(and(...conditions))
+        .orderBy(desc(incomeTransactions.date), desc(incomeTransactions.id))
+        .limit(parseInt(limit))
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` })
+        .from(incomeTransactions)
+        .where(and(...conditions)),
+    ])
+
+    return reply.send({ data: rows, total: countRow[0].count, page: parseInt(page), limit: parseInt(limit) })
+  })
+
+  // Create
+  fastify.post('/api/income', { preHandler: [authenticate] }, async (req, reply) => {
+    const body = transactionSchema.safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+
+    const { payslip, ...txData } = body.data
+    const [tx] = await db.insert(incomeTransactions).values({
+      householdId: (req.user as any).householdId,
+      userId: (req.user as any).sub,
+      ...txData,
+    }).returning()
+
+    if (txData.isPayslip && payslip) {
+      await db.insert(payslipDetails).values({ transactionId: tx.id, ...payslip })
+    }
+
+    return reply.code(201).send(tx)
+  })
+
+  // Get one
+  fastify.get('/api/income/:id', { preHandler: [authenticate] }, async (req, reply) => {
+    const id = parseInt((req.params as any).id, 10)
+    const tx = await db.query.incomeTransactions.findFirst({
+      where: (t, { eq, and }) => and(eq(t.id, id), eq(t.householdId, (req.user as any).householdId)),
+    })
+    if (!tx) return reply.code(404).send({ error: 'Not found' })
+    return reply.send(tx)
+  })
+
+  // Update
+  fastify.put('/api/income/:id', { preHandler: [authenticate] }, async (req, reply) => {
+    const id = parseInt((req.params as any).id, 10)
+    const body = transactionSchema.partial().safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+
+    const { payslip, ...txData } = body.data as any
+    const existing = await db.query.incomeTransactions.findFirst({
+      where: (t, { eq, and }) => and(eq(t.id, id), eq(t.householdId, (req.user as any).householdId)),
+    })
+    if (!existing) return reply.code(404).send({ error: 'Not found' })
+
+    const [updated] = await db.update(incomeTransactions)
+      .set({ ...txData, updatedAt: new Date().toISOString() })
+      .where(eq(incomeTransactions.id, id))
+      .returning()
+
+    if (payslip) {
+      const existingPayslip = await db.query.payslipDetails.findFirst({
+        where: (p, { eq }) => eq(p.transactionId, id),
+      })
+      if (existingPayslip) {
+        await db.update(payslipDetails).set(payslip).where(eq(payslipDetails.transactionId, id))
+      } else {
+        await db.insert(payslipDetails).values({ transactionId: id, ...payslip })
+      }
+    }
+
+    return reply.send(updated)
+  })
+
+  // Delete
+  fastify.delete('/api/income/:id', { preHandler: [authenticate] }, async (req, reply) => {
+    const id = parseInt((req.params as any).id, 10)
+    const existing = await db.query.incomeTransactions.findFirst({
+      where: (t, { eq, and }) => and(eq(t.id, id), eq(t.householdId, (req.user as any).householdId)),
+    })
+    if (!existing) return reply.code(404).send({ error: 'Not found' })
+    await db.delete(incomeTransactions).where(eq(incomeTransactions.id, id))
+    return reply.send({ ok: true })
+  })
+
+  // Categories
+  fastify.get('/api/income/categories', { preHandler: [authenticate] }, async (req, reply) => {
+    const cats = await db.select().from(incomeCategories)
+      .where(eq(incomeCategories.householdId, (req.user as any).householdId))
+      .orderBy(incomeCategories.sortOrder)
+    return reply.send(cats)
+  })
+
+  fastify.post('/api/income/categories', { preHandler: [authenticate] }, async (req, reply) => {
+    const body = categorySchema.safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+    const [cat] = await db.insert(incomeCategories).values({
+      householdId: (req.user as any).householdId, ...body.data,
+    }).returning()
+    return reply.code(201).send(cat)
+  })
+
+  fastify.put('/api/income/categories/:id', { preHandler: [authenticate] }, async (req, reply) => {
+    const id = parseInt((req.params as any).id, 10)
+    const body = categorySchema.partial().safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+    const [updated] = await db.update(incomeCategories).set(body.data)
+      .where(and(eq(incomeCategories.id, id), eq(incomeCategories.householdId, (req.user as any).householdId)))
+      .returning()
+    if (!updated) return reply.code(404).send({ error: 'Not found' })
+    return reply.send(updated)
+  })
+
+  fastify.delete('/api/income/categories/:id', { preHandler: [authenticate] }, async (req, reply) => {
+    const id = parseInt((req.params as any).id, 10)
+    await db.delete(incomeCategories)
+      .where(and(eq(incomeCategories.id, id), eq(incomeCategories.householdId, (req.user as any).householdId)))
+    return reply.send({ ok: true })
+  })
+}

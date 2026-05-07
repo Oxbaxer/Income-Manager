@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-surface text-white font-sans;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 10%, rgba(168, 85, 247, 0.06) 0%, transparent 40%);
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track { @apply bg-surface-1; }
+  ::-webkit-scrollbar-thumb { @apply bg-surface-4 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-primary/60; }
+}
+
+@layer components {
+  .glass {
+    @apply bg-gradient-glass backdrop-blur-sm border border-border rounded-xl;
+    box-shadow: var(--tw-shadow-glass, 0 0 0 1px rgba(255,255,255,0.08), 0 4px 24px rgba(0,0,0,0.4));
+  }
+
+  .glass-hover {
+    @apply glass transition-all duration-200;
+  }
+  .glass-hover:hover {
+    @apply border-border-hover;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.16), 0 8px 32px rgba(0,0,0,0.5);
+  }
+
+  .neon-text {
+    text-shadow: 0 0 20px currentColor;
+  }
+}

@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Income Manager — Documentation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --green: #10b981;
+    --red: #f43f5e;
+    --amber: #f59e0b;
+    --cyan: #22d3ee;
+    --bg: #0f1117;
+    --surface: #161b27;
+    --surface2: #1e2535;
+    --border: rgba(255,255,255,0.08);
+    --text: #f1f5f9;
+    --text-muted: rgba(255,255,255,0.5);
+    --text-faint: rgba(255,255,255,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 10.5pt;
+    line-height: 1.65;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── PAGE LAYOUT ── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 18mm 16mm;
+    position: relative;
+  }
+
+  @media print {
+    body { background: #0f1117 !important; }
+    .page { margin: 0; padding: 14mm 16mm; }
+    .page-break { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+  }
+
+  /* ── COVER ── */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 270mm;
+    text-align: center;
+  }
+
+  .cover-logo {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    margin-bottom: 28px;
+    box-shadow: 0 0 40px rgba(99,102,241,0.4);
+  }
+
+  .cover h1 {
+    font-size: 32pt;
+    font-weight: 700;
+    background: linear-gradient(135deg, #f1f5f9, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+
+  .cover .subtitle {
+    font-size: 13pt;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-bottom: 32px;
+  }
+
+  .cover-badges {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 48px;
+  }
+
+  .badge {
+    padding: 5px 14px;
+    border-radius: 100px;
+    font-size: 8.5pt;
+    font-weight: 500;
+    border: 1px solid;
+  }
+
+  .badge-purple { color: var(--primary-light); border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.1); }
+  .badge-green  { color: var(--green);         border-color: rgba(16,185,129,0.4);  background: rgba(16,185,129,0.1); }
+  .badge-amber  { color: var(--amber);          border-color: rgba(245,158,11,0.4);  background: rgba(245,158,11,0.1); }
+  .badge-cyan   { color: var(--cyan);           border-color: rgba(34,211,238,0.4);  background: rgba(34,211,238,0.1); }
+
+  .cover-meta {
+    color: var(--text-faint);
+    font-size: 9pt;
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    width: 100%;
+  }
+
+  /* ── TYPOGRAPHY ── */
+  h1 { font-size: 20pt; font-weight: 700; color: var(--text); margin-bottom: 20px; margin-top: 32px; }
+  h2 { font-size: 14pt; font-weight: 600; color: var(--primary-light); margin-bottom: 12px; margin-top: 28px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 11pt; font-weight: 600; color: var(--text); margin-bottom: 8px; margin-top: 20px; }
+  h4 { font-size: 10pt; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  p { margin-bottom: 10px; color: rgba(255,255,255,0.82); }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    margin-top: 8px;
+  }
+
+  .section-number {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13pt;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(99,102,241,0.3);
+  }
+
+  .section-header h1 {
+    margin: 0;
+    font-size: 18pt;
+  }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .toc-title {
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+
+  .toc-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dotted rgba(255,255,255,0.08);
+    gap: 12px;
+  }
+
+  .toc-item:last-child { border-bottom: none; }
+
+  .toc-num {
+    font-size: 9pt;
+    color: var(--primary);
+    font-weight: 600;
+    min-width: 24px;
+  }
+
+  .toc-label {
+    flex: 1;
+    font-size: 10.5pt;
+    color: rgba(255,255,255,0.75);
+  }
+
+  .toc-page {
+    font-size: 9pt;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── STEPS ── */
+  .steps { margin: 16px 0; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .step::before {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: 36px;
+    bottom: -20px;
+    width: 2px;
+    background: linear-gradient(to bottom, rgba(99,102,241,0.4), transparent);
+  }
+
+  .step:last-child::before { display: none; }
+
+  .step-num {
+    width: 36px; height: 36px;
+    background: var(--surface2);
+    border: 2px solid rgba(99,102,241,0.5);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11pt; font-weight: 700;
+    color: var(--primary-light);
+    flex-shrink: 0;
+  }
+
+  .step-content { flex: 1; padding-top: 6px; }
+  .step-title { font-weight: 600; font-size: 11pt; color: var(--text); margin-bottom: 6px; }
+  .step-desc { color: rgba(255,255,255,0.65); font-size: 10pt; }
+
+  /* ── CODE ── */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 10px 0 16px;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 9pt;
+    line-height: 1.7;
+    overflow: hidden;
+  }
+
+  .code-block .comment { color: #6b7280; }
+  .code-block .cmd     { color: #22d3ee; }
+  .code-block .string  { color: #a5f3fc; }
+  .code-block .keyword { color: var(--primary-light); }
+  .code-block .value   { color: var(--green); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 9pt;
+    color: var(--primary-light);
+  }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    border-left: 3px solid;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { flex: 1; }
+  .callout-title { font-weight: 600; font-size: 10pt; margin-bottom: 4px; }
+  .callout-text  { font-size: 9.5pt; }
+
+  .callout-info    { background: rgba(99,102,241,0.08); border-color: var(--primary);  }
+  .callout-info    .callout-title { color: var(--primary-light); }
+  .callout-info    .callout-text  { color: rgba(129,140,248,0.8); }
+
+  .callout-warning { background: rgba(245,158,11,0.08); border-color: var(--amber);   }
+  .callout-warning .callout-title { color: var(--amber); }
+  .callout-warning .callout-text  { color: rgba(245,158,11,0.75); }
+
+  .callout-success { background: rgba(16,185,129,0.08); border-color: var(--green);   }
+  .callout-success .callout-title { color: var(--green); }
+  .callout-success .callout-text  { color: rgba(16,185,129,0.75); }
+
+  .callout-tip     { background: rgba(34,211,238,0.08); border-color: var(--cyan);    }
+  .callout-tip     .callout-title { color: var(--cyan); }
+  .callout-tip     .callout-text  { color: rgba(34,211,238,0.75); }
+
+  /* ── CARDS GRID ── */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .cards-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .card-icon { font-size: 20px; margin-bottom: 8px; }
+  .card-title { font-weight: 600; font-size: 10pt; color: var(--text); margin-bottom: 4px; }
+  .card-desc { font-size: 9pt; color: var(--text-muted); line-height: 1.5; }
+
+  /* ── FEATURE TABLE ── */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  th {
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td { padding: 9px 14px; font-size: 9.5pt; border-bottom: 1px solid var(--border); color: rgba(255,255,255,0.75); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+
+  /* ── SCREENSHOT PLACEHOLDER ── */
+  .screen-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0;
+    text-align: center;
+  }
+
+  .screen-label {
+    font-size: 8.5pt;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-top: 8px;
+  }
+
+  /* ── MOCKUP ── */
+  .mockup {
+    background: #0a0d14;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+  }
+
+  .mockup-bar {
+    background: #161b27;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .mockup-url {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 8pt;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+  }
+
+  .mockup-content {
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+  }
+
+  .mock-sidebar {
+    width: 110px;
+    background: #161b27;
+    border-radius: 8px;
+    padding: 10px 8px;
+    flex-shrink: 0;
+  }
+
+  .mock-logo {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 10px;
+  }
+
+  .mock-logo-icon {
+    width: 20px; height: 20px;
+    background: rgba(99,102,241,0.3);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+  }
+
+  .mock-logo-text { font-size: 7.5pt; font-weight: 600; color: rgba(255,255,255,0.8); }
+
+  .mock-nav-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 8pt;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 2px;
+  }
+
+  .mock-nav-item.active {
+    background: rgba(99,102,241,0.15);
+    color: var(--primary-light);
+    border: 1px solid rgba(99,102,241,0.2);
+  }
+
+  .mock-main { flex: 1; }
+
+  .mock-title {
+    font-size: 12pt;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .mock-kpis { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+
+  .mock-kpi {
+    background: #1e2535;
+    border-radius: 8px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .mock-kpi-label { font-size: 6.5pt; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.05em; }
+  .mock-kpi-value { font-size: 11pt; font-weight: 700; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+  .mock-chart {
+    background: #161b27;
+    border-radius: 8px;
+    height: 60px;
+    display: flex;
+    align-items: flex-end;
+    padding: 8px;
+    gap: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .mock-bar {
+    flex: 1;
+    border-radius: 3px;
+    background: rgba(99,102,241,0.6);
+  }
+
+  .mock-bar.green { background: rgba(16,185,129,0.7); }
+  .mock-bar.red   { background: rgba(244,63,94,0.6); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    border: none;
+    height: 1px;
+    background: var(--border);
+    margin: 28px 0;
+  }
+
+  /* ── LIST ── */
+  ul, ol { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 5px; color: rgba(255,255,255,0.75); font-size: 10pt; }
+  li strong { color: var(--text); }
+
+  /* ── INLINE HIGHLIGHT ── */
+  .highlight { color: var(--primary-light); font-weight: 500; }
+  .highlight-green { color: var(--green); font-weight: 500; }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-size: 8.5pt;
+    color: var(--text-faint);
+  }
+
+  /* ── KEYBOARD ── */
+  kbd {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 8.5pt;
+    color: var(--text);
+  }
+
+  /* ── STATUS PILL ── */
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 8.5pt;
+    font-weight: 500;
+    border: 1px solid;
+  }
+  .pill-green { color: var(--green); border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.1); }
+  .pill-red   { color: #f87171; border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.1); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 1 — COUVERTURE
+═══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="cover">
+    <div class="cover-logo">💰</div>
+    <h1>Income Manager</h1>
+    <p class="subtitle">Gestion Budgétaire Familiale — Documentation complète</p>
+
+    <div class="cover-badges">
+      <span class="badge badge-purple">Self-hosted</span>
+      <span class="badge badge-green">Multi-utilisateurs</span>
+      <span class="badge badge-amber">Bilingue FR / EN</span>
+      <span class="badge badge-cyan">Docker ready</span>
+    </div>
+
+    <!-- Mockup interface -->
+    <div class="mockup" style="width:100%; max-width:480px; text-align:left;">
+      <div class="mockup-bar">
+        <div class="mockup-dot" style="background:#f43f5e"></div>
+        <div class="mockup-dot" style="background:#f59e0b"></div>
+        <div class="mockup-dot" style="background:#10b981"></div>
+        <div class="mockup-url">localhost / income-manager.local</div>
+      </div>
+      <div class="mockup-content">
+        <div class="mock-sidebar">
+          <div class="mock-logo">
+            <div class="mock-logo-icon">💰</div>
+            <span class="mock-logo-text">Income<br>Manager</span>
+          </div>
+          <div class="mock-nav-item active">📊 Dashboard</div>
+          <div class="mock-nav-item">↑ Revenus</div>
+          <div class="mock-nav-item">↓ Dépenses</div>
+          <div class="mock-nav-item">🔁 Récurrents</div>
+          <div class="mock-nav-item">🎯 Objectifs</div>
+          <div class="mock-nav-item">📈 Prévisions</div>
+          <div class="mock-nav-item">⚙ Paramètres</div>
+        </div>
+        <div class="mock-main">
+          <div class="mock-title">Tableau de bord</div>
+          <div class="mock-kpis">
+            <div class="mock-kpi">
+              <div class="mock-kpi-label">Revenus</div>
+              <div class="mock-kpi-value" style="color:#10b981">3 200 €</div>
+            </div>
+            <div class="mock-kpi">
+              <div class="mock-kpi-label">Dépenses</div>
+              <div class="mock-kpi-value" style="color:#f43f5e">1 650 €</div>
+            </div>
+            <div class="mock-kpi">
+              <div class="mock-kpi-label">Épargne</div>
+              <div class="mock-kpi-value" style="color:#818cf8">1 550 €</div>
+            </div>
+          </div>
+          <div class="mock-chart">
+            <div class="mock-bar green" style="height:60%"></div>
+            <div class="mock-bar red"   style="height:40%"></div>
+            <div class="mock-bar green" style="height:65%"></div>
+            <div class="mock-bar red"   style="height:45%"></div>
+            <div class="mock-bar green" style="height:70%"></div>
+            <div class="mock-bar red"   style="height:38%"></div>
+            <div class="mock-bar green" style="height:72%"></div>
+            <div class="mock-bar red"   style="height:42%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-meta">
+      Version 1.0 &nbsp;·&nbsp; Mai 2026 &nbsp;·&nbsp; Installation et guide d'utilisation
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 2 — SOMMAIRE
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+  <div class="section-header">
+    <div class="section-number">📋</div>
+    <h1>Sommaire</h1>
+  </div>
+
+  <div class="toc">
+    <div class="toc-title">Table des matières</div>
+    <div class="toc-item"><span class="toc-num">1</span><span class="toc-label">Présentation de l'application</span><span class="toc-page">3</span></div>
+    <div class="toc-item"><span class="toc-num">2</span><span class="toc-label">Prérequis — Ce dont vous avez besoin</span><span class="toc-page">3</span></div>
+    <div class="toc-item"><span class="toc-num">3</span><span class="toc-label">Installation avec Docker (recommandé)</span><span class="toc-page">4</span></div>
+    <div class="toc-item"><span class="toc-num">4</span><span class="toc-label">Installation sans Docker (développeurs)</span><span class="toc-page">5</span></div>
+    <div class="toc-item"><span class="toc-num">5</span><span class="toc-label">Premier lancement — Créer votre compte</span><span class="toc-page">6</span></div>
+    <div class="toc-item"><span class="toc-num">6</span><span class="toc-label">Le Tableau de bord</span><span class="toc-page">7</span></div>
+    <div class="toc-item"><span class="toc-num">7</span><span class="toc-label">Gérer vos Revenus</span><span class="toc-page">8</span></div>
+    <div class="toc-item"><span class="toc-num">8</span><span class="toc-label">Gérer vos Dépenses</span><span class="toc-page">9</span></div>
+    <div class="toc-item"><span class="toc-num">9</span><span class="toc-label">Transactions Récurrentes</span><span class="toc-page">10</span></div>
+    <div class="toc-item"><span class="toc-num">10</span><span class="toc-label">Objectifs d'épargne</span><span class="toc-page">11</span></div>
+    <div class="toc-item"><span class="toc-num">11</span><span class="toc-label">Prévisions & Simulations</span><span class="toc-page">12</span></div>
+    <div class="toc-item"><span class="toc-num">12</span><span class="toc-label">Paramètres — Langue & Export</span><span class="toc-page">13</span></div>
+    <div class="toc-item"><span class="toc-num">13</span><span class="toc-label">Questions fréquentes</span><span class="toc-page">14</span></div>
+  </div>
+
+  <h2>À propos de cette documentation</h2>
+  <p>Ce guide est destiné à <strong>toute personne</strong>, sans connaissance technique particulière. Chaque étape est illustrée et expliquée simplement. Si vous êtes développeur et souhaitez personnaliser l'application, reportez-vous à la section <strong>Installation sans Docker</strong>.</p>
+
+  <div class="callout callout-info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body">
+      <div class="callout-title">Icônes utilisées dans ce guide</div>
+      <div class="callout-text">
+        ℹ️ Information utile &nbsp;·&nbsp; ⚠️ Attention, étape importante &nbsp;·&nbsp; ✅ Résultat attendu &nbsp;·&nbsp; 💡 Conseil pratique
+      </div>
+    </div>
+  </div>
+
+  <h2>Vue d'ensemble des fonctionnalités</h2>
+  <div class="cards">
+    <div class="card"><div class="card-icon">📊</div><div class="card-title">Tableau de bord</div><div class="card-desc">Vue synthétique de vos finances avec graphiques interactifs et indicateurs clés.</div></div>
+    <div class="card"><div class="card-icon">💚</div><div class="card-title">Revenus</div><div class="card-desc">Saisie simple ou détaillée (fiches de paie avec brut/net/cotisations).</div></div>
+    <div class="card"><div class="card-icon">❤️</div><div class="card-title">Dépenses</div><div class="card-desc">Suivi par catégories colorées avec icônes personnalisables.</div></div>
+    <div class="card"><div class="card-icon">🔁</div><div class="card-title">Récurrents</div><div class="card-desc">Loyer, abonnements, salaires fixes — saisis une fois, enregistrés automatiquement.</div></div>
+    <div class="card"><div class="card-icon">🎯</div><div class="card-title">Objectifs</div><div class="card-desc">Définissez des projets d'épargne (vacances, voiture...) et suivez votre progression.</div></div>
+    <div class="card"><div class="card-icon">📈</div><div class="card-title">Prévisions</div><div class="card-desc">Simulez la croissance de votre épargne avec les intérêts composés.</div></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 3 — PRÉSENTATION & PRÉREQUIS
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <h1>Présentation</h1>
+  </div>
+
+  <p><strong>Income Manager</strong> est une application web que vous hébergez vous-même sur votre ordinateur ou serveur. Vos données financières restent <span class="highlight-green">entièrement privées</span> — elles ne sont jamais envoyées vers un service externe.</p>
+
+  <p>L'application fonctionne dans votre navigateur internet (Chrome, Firefox, Edge...) et s'installe en quelques minutes grâce à Docker.</p>
+
+  <div class="callout callout-success">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body">
+      <div class="callout-title">Vos données vous appartiennent</div>
+      <div class="callout-text">Toutes les informations sont stockées dans un fichier sur votre machine. Vous pouvez les exporter à tout moment depuis les Paramètres.</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <h1>Prérequis</h1>
+  </div>
+
+  <p>Avant d'installer Income Manager, vous avez besoin d'un seul logiciel : <strong>Docker Desktop</strong>.</p>
+
+  <h2>Installer Docker Desktop</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Téléchargez Docker Desktop</div>
+        <div class="step-desc">Rendez-vous sur <strong>docker.com/products/docker-desktop</strong> et cliquez sur le bouton de téléchargement correspondant à votre système (Windows, Mac ou Linux).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Lancez l'installation</div>
+        <div class="step-desc">Double-cliquez sur le fichier téléchargé et suivez les instructions à l'écran. Sur Windows, acceptez l'activation de WSL 2 si cela vous est demandé.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Vérifiez que Docker fonctionne</div>
+        <div class="step-desc">Après redémarrage, vous devriez voir l'icône Docker (🐋) dans la barre des tâches. L'icône doit être verte ou blanche — cela signifie que Docker est prêt.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-warning">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Sur Windows : WSL 2 requis</div>
+      <div class="callout-text">Si Windows vous demande d'installer WSL 2, acceptez et suivez le lien fourni. C'est un composant gratuit de Microsoft nécessaire pour faire fonctionner Docker.</div>
+    </div>
+  </div>
+
+  <h2>Téléchargez les fichiers de l'application</h2>
+
+  <p>Deux options pour récupérer les fichiers :</p>
+
+  <table>
+    <tr>
+      <th>Option</th>
+      <th>Comment faire</th>
+      <th>Pour qui</th>
+    </tr>
+    <tr>
+      <td><strong>Archive ZIP</strong></td>
+      <td>Téléchargez et décompressez le fichier fourni dans un dossier de votre choix (ex: <code>C:\income-manager</code>)</td>
+      <td>Tout le monde ✅</td>
+    </tr>
+    <tr>
+      <td><strong>Git</strong></td>
+      <td>Ouvrez un terminal et tapez : <code>git clone [url-du-dépôt]</code></td>
+      <td>Développeurs</td>
+    </tr>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 4 — INSTALLATION DOCKER
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <h1>Installation avec Docker <span class="badge badge-green" style="font-size:8pt; vertical-align: middle;">Recommandé</span></h1>
+  </div>
+
+  <p>Cette méthode fonctionne sur <strong>Windows, Mac et Linux</strong>. Elle ne nécessite aucune connaissance en programmation.</p>
+
+  <h2>Étape 1 — Configurer les secrets de sécurité</h2>
+
+  <p>Le fichier <code>.env</code> contient les clés de chiffrement de vos données. Il doit être créé avant le démarrage.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Copiez le fichier modèle</div>
+        <div class="step-desc">Dans le dossier de l'application, trouvez le fichier <code>.env.example</code>. Faites-en une copie et nommez-la <code>.env</code> (sans le mot "example").</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Modifiez les clés secrètes</div>
+        <div class="step-desc">Ouvrez <code>.env</code> avec le Bloc-notes (clic droit → Ouvrir avec → Bloc-notes). Remplacez les deux valeurs <code>change-me-to-a-random...</code> par des phrases aléatoires de votre choix (minimum 20 caractères).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block">
+<span class="comment"># Contenu du fichier .env à modifier</span>
+<span class="keyword">JWT_SECRET</span>=<span class="value">MonPhraseSecrete2026TresLongueEtComplexe</span>
+<span class="keyword">JWT_REFRESH_SECRET</span>=<span class="value">AutrePhraseDifferente2026EgalementLongue</span>
+<span class="keyword">PORT</span>=<span class="value">3001</span>
+<span class="keyword">NODE_ENV</span>=<span class="value">production</span>
+  </div>
+
+  <div class="callout callout-warning">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Ne partagez jamais ce fichier .env</div>
+      <div class="callout-text">Ces clés servent à sécuriser vos sessions. Notez-les quelque part en lieu sûr, mais ne les envoyez pas par email ni ne les publiez sur internet.</div>
+    </div>
+  </div>
+
+  <h2>Étape 2 — Démarrer l'application</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Ouvrez un terminal dans le dossier de l'application</div>
+        <div class="step-desc">
+          <strong>Windows :</strong> Appuyez sur <kbd>Shift</kbd> + clic droit dans le dossier → <em>"Ouvrir la fenêtre PowerShell ici"</em><br>
+          <strong>Mac :</strong> Terminal → faites glisser le dossier dans le terminal<br>
+          <strong>Linux :</strong> Clic droit → <em>"Ouvrir dans un terminal"</em>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Lancez la commande de démarrage</div>
+        <div class="step-desc">Tapez la commande ci-dessous et appuyez sur <kbd>Entrée</kbd>. Le premier lancement peut prendre 2 à 5 minutes (téléchargement des images).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block">
+<span class="cmd">docker compose up -d</span>
+  </div>
+
+  <div class="callout callout-success">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body">
+      <div class="callout-title">L'application est prête !</div>
+      <div class="callout-text">Quand la commande se termine, ouvrez votre navigateur et allez sur : <strong>http://localhost</strong></div>
+    </div>
+  </div>
+
+  <h2>Arrêter et relancer l'application</h2>
+
+  <table>
+    <tr><th>Action</th><th>Commande</th></tr>
+    <tr><td>Démarrer</td><td><code>docker compose up -d</code></td></tr>
+    <tr><td>Arrêter</td><td><code>docker compose down</code></td></tr>
+    <tr><td>Voir les logs</td><td><code>docker compose logs -f</code></td></tr>
+    <tr><td>Mettre à jour</td><td><code>docker compose pull &amp;&amp; docker compose up -d</code></td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body">
+      <div class="callout-title">Démarrage automatique avec Windows</div>
+      <div class="callout-text">Dans Docker Desktop → Settings → General, cochez <strong>"Start Docker Desktop when you log in"</strong>. L'application démarrera automatiquement à chaque ouverture de session.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 5 — INSTALLATION SANS DOCKER + PREMIER LANCEMENT
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <h1>Installation sans Docker <span class="badge badge-amber" style="font-size:8pt; vertical-align:middle;">Développeurs</span></h1>
+  </div>
+
+  <p>Cette méthode nécessite <strong>Node.js 20+</strong> installé sur votre machine. Elle est recommandée pour modifier le code source.</p>
+
+  <div class="code-block">
+<span class="comment"># 1. Installer les dépendances</span>
+<span class="cmd">cd backend  &amp;&amp;  npm install</span>
+<span class="cmd">cd ../frontend  &amp;&amp;  npm install</span>
+
+<span class="comment"># 2. Copier et configurer .env</span>
+<span class="cmd">cp .env.example .env</span>
+<span class="comment"># → Éditez .env et renseignez JWT_SECRET / JWT_REFRESH_SECRET</span>
+
+<span class="comment"># 3. Lancer les deux serveurs (deux terminaux séparés)</span>
+<span class="cmd">cd backend   &amp;&amp;  npm run dev</span>    <span class="comment"># API  → http://localhost:3001</span>
+<span class="cmd">cd frontend  &amp;&amp;  npm run dev</span>    <span class="comment"># App  → http://localhost:5173</span>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <h1>Premier lancement — Créer votre compte</h1>
+  </div>
+
+  <p>Lors de votre première connexion, vous devez créer un <strong>foyer</strong> (espace familial partagé) et un compte administrateur.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Ouvrez l'application</div>
+        <div class="step-desc">Dans votre navigateur, allez sur <strong>http://localhost</strong> (Docker) ou <strong>http://localhost:5173</strong> (développement).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Créer un foyer"</div>
+        <div class="step-desc">Dans l'écran de connexion, cliquez sur l'onglet <strong>Créer un foyer</strong> (à droite de "Connexion").</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Remplissez le formulaire</div>
+        <div class="step-desc">
+          <strong>Nom du foyer :</strong> un nom pour votre espace (ex: "Famille Dupont")<br>
+          <strong>Votre prénom :</strong> comment vous souhaitez être identifié<br>
+          <strong>Email :</strong> votre adresse email (utilisée pour vous connecter)<br>
+          <strong>Mot de passe :</strong> choisissez un mot de passe sécurisé (min. 8 caractères)
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Créer le foyer"</div>
+        <div class="step-desc">Vous êtes automatiquement connecté et redirigé vers le tableau de bord. Les catégories par défaut (Salaire, Loyer, Courses...) sont créées automatiquement.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body">
+      <div class="callout-title">Inviter d'autres membres</div>
+      <div class="callout-text">En tant qu'administrateur, vous pouvez inviter d'autres membres dans votre foyer depuis la page Paramètres. Ils auront accès à toutes les données mais ne pourront pas supprimer de catégories.</div>
+    </div>
+  </div>
+
+  <div class="callout callout-warning">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Conservez vos identifiants</div>
+      <div class="callout-text">Notez votre email et mot de passe. Il n'y a pas de système de récupération de mot de passe par email dans cette version auto-hébergée.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 6 — TABLEAU DE BORD
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">6</div>
+    <h1>Le Tableau de bord</h1>
+  </div>
+
+  <p>Le tableau de bord est votre page d'accueil. Il vous donne une vision synthétique de vos finances sur la période de votre choix.</p>
+
+  <h2>Sélecteur de période</h2>
+  <p>En haut de la page, 7 périodes sont disponibles :</p>
+
+  <div class="cards cards-3" style="grid-template-columns: repeat(7, 1fr); gap: 8px;">
+    <div class="card" style="padding: 8px; text-align:center;"><div style="font-weight:700; color: var(--primary-light)">1 mois</div></div>
+    <div class="card" style="padding: 8px; text-align:center;"><div style="font-weight:700; color: var(--text-muted)">3 mois</div></div>
+    <div class="card" style="padding: 8px; text-align:center;"><div style="font-weight:700; color: var(--text-muted)">6 mois</div></div>
+    <div class="card" style="padding: 8px; text-align:center;"><div style="font-weight:700; color: var(--text-muted)">1 an</div></div>
+    <div class="card" style="padding: 8px; text-align:center;"><div style="font-weight:700; color: var(--text-muted)">2 ans</div></div>
+    <div class="card" style="padding: 8px; text-align:center;"><div style="font-weight:700; color: var(--text-muted)">5 ans</div></div>
+    <div class="card" style="padding: 8px; text-align:center;"><div style="font-weight:700; color: var(--text-muted)">Tout</div></div>
+  </div>
+
+  <h2>Indicateurs clés (KPIs)</h2>
+  <p>Trois cartes synthétiques affichent, pour la période sélectionnée :</p>
+
+  <div class="cards">
+    <div class="card" style="border-color: rgba(16,185,129,0.3);">
+      <div class="card-icon">💚</div>
+      <div class="card-title" style="color: var(--green)">Revenus</div>
+      <div class="card-desc">Total de tous vos revenus encaissés sur la période (salaires, loyers perçus, primes...)</div>
+    </div>
+    <div class="card" style="border-color: rgba(244,63,94,0.3);">
+      <div class="card-icon">❤️</div>
+      <div class="card-title" style="color: #f43f5e">Dépenses</div>
+      <div class="card-desc">Total de toutes vos dépenses sur la période.</div>
+    </div>
+    <div class="card" style="border-color: rgba(99,102,241,0.3);">
+      <div class="card-icon">💙</div>
+      <div class="card-title" style="color: var(--primary-light)">Épargne nette</div>
+      <div class="card-desc">La différence : Revenus − Dépenses. Positif = vous épargnez. Négatif = vous dépensez plus que vous ne gagnez.</div>
+    </div>
+  </div>
+
+  <h2>Les 4 graphiques</h2>
+
+  <table>
+    <tr><th>Onglet</th><th>Ce que vous voyez</th><th>Utilité</th></tr>
+    <tr>
+      <td><strong>Revenus vs Dépenses</strong></td>
+      <td>Barres vertes (revenus) et violettes (dépenses) par mois</td>
+      <td>Comparer mois par mois vos entrées et sorties d'argent</td>
+    </tr>
+    <tr>
+      <td><strong>Évolution épargne</strong></td>
+      <td>Courbe verte (épargne cumulée) et violette (épargne mensuelle)</td>
+      <td>Voir si votre épargne totale augmente dans le temps</td>
+    </tr>
+    <tr>
+      <td><strong>Dépenses par catégorie</strong></td>
+      <td>Graphique en anneau coloré + légende avec barres de proportion</td>
+      <td>Identifier les postes de dépenses les plus importants</td>
+    </tr>
+    <tr>
+      <td><strong>Revenus cumulés</strong></td>
+      <td>Courbe Brut (amber) et Net (cyan), vue mensuelle ou cumulée</td>
+      <td>Suivre l'évolution de vos revenus annuels</td>
+    </tr>
+  </table>
+
+  <h2>Transactions récentes</h2>
+  <p>La liste des 8 dernières opérations (revenus et dépenses confondus) est affichée en bas de page. Chaque ligne montre la description, la catégorie, la date et le montant.</p>
+  <p>Cliquez sur <strong>Voir tout →</strong> pour accéder à la liste complète de vos revenus.</p>
+
+  <div class="callout callout-tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body">
+      <div class="callout-title">Graphique vide ?</div>
+      <div class="callout-text">Les graphiques s'alimentent automatiquement au fur et à mesure que vous saisissez vos revenus et dépenses. Il est normal qu'ils soient vides lors du premier lancement.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 7 — REVENUS
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">7</div>
+    <h1>Gérer vos Revenus</h1>
+  </div>
+
+  <p>La page Revenus liste toutes vos entrées d'argent. Elle est accessible via le menu de gauche (↑ Revenus).</p>
+
+  <h2>Ajouter un revenu</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Ajouter un revenu"</div>
+        <div class="step-desc">Le bouton violet en haut à droite de la page ouvre un formulaire.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Remplissez les informations de base</div>
+        <div class="step-desc">
+          <strong>Description :</strong> libellé du revenu (ex: "Salaire Janvier")<br>
+          <strong>Montant :</strong> en euros (virgule ou point acceptés)<br>
+          <strong>Date :</strong> date de réception<br>
+          <strong>Catégorie :</strong> sélectionnez dans la liste (Salaire, Loyer perçu, Prime...)
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">(Optionnel) Détails de fiche de paie</div>
+        <div class="step-desc">Cochez <strong>"Fiche de paie"</strong> pour saisir le détail de votre bulletin : salaire brut, net, cotisations, primes et nom de l'employeur. Ces informations alimentent le graphique "Revenus cumulés".</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Enregistrer"</div>
+        <div class="step-desc">Le revenu apparaît dans la liste et les graphiques du tableau de bord se mettent à jour automatiquement.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Modifier ou supprimer un revenu</h2>
+  <p>Chaque ligne de la liste possède deux icônes à droite :</p>
+  <ul>
+    <li><strong>✎ (crayon)</strong> — ouvre le formulaire de modification avec les données pré-remplies</li>
+    <li><strong>✕ (croix)</strong> — supprime définitivement l'entrée (une confirmation vous est demandée)</li>
+  </ul>
+
+  <h2>Catégories de revenus</h2>
+  <p>Des catégories par défaut sont créées à l'inscription : Salaire, Loyer perçu, Dons, Dividendes, Freelance, Autre. Vous pouvez en ajouter de nouvelles en cliquant sur le bouton <strong>"Catégories de revenus"</strong> en haut de page.</p>
+
+  <h2>Navigation dans la liste</h2>
+  <p>Si vous avez beaucoup de transactions, utilisez les boutons <strong>Précédent / Suivant</strong> en bas de liste pour naviguer entre les pages (10 entrées par page).</p>
+
+  <div class="callout callout-info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body">
+      <div class="callout-title">Revenu récurrent ?</div>
+      <div class="callout-text">Si vous avez un salaire fixe mensuel, utilisez plutôt la page <strong>Récurrents</strong> pour le saisir une seule fois. Il sera enregistré automatiquement chaque mois.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 8 — DÉPENSES
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">8</div>
+    <h1>Gérer vos Dépenses</h1>
+  </div>
+
+  <p>La page Dépenses fonctionne de la même façon que les Revenus. Elle est accessible via ↓ Dépenses dans le menu.</p>
+
+  <h2>Ajouter une dépense</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Ajouter une dépense"</div>
+        <div class="step-desc">Le formulaire s'ouvre avec les mêmes champs que pour un revenu.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Sélectionnez la catégorie</div>
+        <div class="step-desc">Chaque catégorie de dépense possède une couleur et une icône distinctes pour faciliter l'identification dans les graphiques.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Enregistrer"</div>
+        <div class="step-desc">La dépense est ajoutée et le graphique "Dépenses par catégorie" se met à jour.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Catégories de dépenses par défaut</h2>
+
+  <div class="cards" style="grid-template-columns: repeat(3, 1fr); gap: 8px;">
+    <div class="card" style="padding: 8px;"><span style="color:#f97316">🍽️</span> <strong>Repas</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#ec4899">🎉</span> <strong>Sorties</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#3b82f6">✈️</span> <strong>Voyages</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#8b5cf6">🛍️</span> <strong>Shopping</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#10b981">🏥</span> <strong>Santé</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#f59e0b">⚡</span> <strong>Énergie</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#ef4444">🏠</span> <strong>Loyer</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#6366f1">📱</span> <strong>Abonnements</strong></div>
+    <div class="card" style="padding: 8px;"><span style="color:#14b8a6">📚</span> <strong>Formation</strong></div>
+  </div>
+
+  <p style="margin-top: 12px;">Vous pouvez créer autant de catégories que vous souhaitez avec la couleur et l'icône (emoji) de votre choix.</p>
+
+  <div class="callout callout-tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body">
+      <div class="callout-title">Conseil organisation</div>
+      <div class="callout-text">Créez des catégories spécifiques pour vos principaux postes de dépenses (ex: "Loyer", "Courses", "Voiture"). Cela rendra le graphique en anneau beaucoup plus lisible.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 9 — RÉCURRENTS
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">9</div>
+    <h1>Transactions Récurrentes</h1>
+  </div>
+
+  <p>Les transactions récurrentes vous permettent de <strong>définir une règle une seule fois</strong> pour qu'elle soit enregistrée automatiquement à intervalles réguliers. Idéal pour le loyer, les abonnements, le salaire...</p>
+
+  <div class="callout callout-success">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body">
+      <div class="callout-title">Comment ça fonctionne ?</div>
+      <div class="callout-text">Chaque heure, l'application vérifie si une règle récurrente est due. Si oui, la transaction est créée automatiquement dans vos revenus ou dépenses, et la prochaine date d'échéance est calculée.</div>
+    </div>
+  </div>
+
+  <h2>Créer une règle récurrente</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "+ Nouvelle règle"</div>
+        <div class="step-desc">En haut à droite de la page Récurrents.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Choisissez le type</div>
+        <div class="step-desc">Cliquez sur <strong>Revenu</strong> ou <strong>Dépense</strong> selon la nature de la transaction. La couleur du formulaire change pour vous indiquer le type sélectionné.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Remplissez les détails</div>
+        <div class="step-desc">
+          <strong>Montant :</strong> la somme fixe à enregistrer à chaque échéance<br>
+          <strong>Fréquence :</strong> Hebdomadaire, Mensuelle ou Annuelle<br>
+          <strong>Catégorie :</strong> la catégorie à laquelle rattacher la transaction<br>
+          <strong>Description :</strong> le libellé (ex: "Loyer", "Netflix", "Salaire")<br>
+          <strong>Date de début :</strong> la première date d'exécution<br>
+          <strong>Date de fin :</strong> (optionnel) pour les contrats à durée limitée
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Créer la règle"</div>
+        <div class="step-desc">La règle apparaît dans la section "Actives". La prochaine date d'exécution est affichée sur chaque ligne.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Gérer les règles existantes</h2>
+
+  <table>
+    <tr><th>Action</th><th>Comment faire</th></tr>
+    <tr><td><strong>Suspendre temporairement</strong></td><td>Cliquez sur le bouton ● (cercle vert) — la règle passe en "Inactive" sans être supprimée</td></tr>
+    <tr><td><strong>Réactiver</strong></td><td>Cliquez sur le cercle ○ dans la section "Inactives"</td></tr>
+    <tr><td><strong>Modifier</strong></td><td>Cliquez sur l'icône ✎ (crayon) pour changer le montant, la fréquence, etc.</td></tr>
+    <tr><td><strong>Supprimer</strong></td><td>Cliquez sur ✕ — attention, les transactions déjà créées sont conservées</td></tr>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 10 — OBJECTIFS
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">10</div>
+    <h1>Objectifs d'épargne</h1>
+  </div>
+
+  <p>Les objectifs vous permettent de <strong>visualiser la progression</strong> vers un projet financier : vacances, apport immobilier, achat d'une voiture, fond d'urgence...</p>
+
+  <h2>Créer un objectif</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "+ Nouvel objectif"</div>
+        <div class="step-desc">En haut à droite de la page Objectifs.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Donnez un nom et un montant cible</div>
+        <div class="step-desc">
+          <strong>Nom :</strong> décrivez votre projet (ex: "Vacances Grèce", "Voiture", "Apport appartement")<br>
+          <strong>Montant cible :</strong> la somme totale à atteindre<br>
+          <strong>Date cible :</strong> (optionnel) quand vous souhaitez atteindre l'objectif. Affiche un compte à rebours en jours.
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "Créer l'objectif"</div>
+        <div class="step-desc">L'objectif apparaît avec une barre de progression à 0%. Vous pouvez en créer autant que vous voulez.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Ajouter une contribution</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "+ Contribuer"</div>
+        <div class="step-desc">Bouton disponible sur chaque carte d'objectif.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Saisissez le montant et la date</div>
+        <div class="step-desc">Vous pouvez aussi ajouter une note (ex: "Bonus de fin d'année", "Vente d'objet").</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">(Optionnel) Rendre la contribution récurrente</div>
+        <div class="step-desc">Cochez <strong>"Contribution récurrente"</strong> et choisissez la fréquence. Un virement automatique sera simulé chaque semaine, mois ou année.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Lecture de la barre de progression</h2>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-title">Barre violette</div>
+      <div class="card-desc">Progression normale (moins de 100% atteint). Affiche le montant épargné, le total visé, le pourcentage et le montant restant.</div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color: var(--green)">Barre verte + "✓ Objectif atteint !"</div>
+      <div class="card-desc">Félicitations ! Vous avez atteint ou dépassé votre objectif. La barre devient entièrement verte.</div>
+    </div>
+  </div>
+
+  <h2>Tableau de synthèse</h2>
+  <p>En haut de la page, 3 indicateurs récapitulent l'ensemble de vos objectifs :</p>
+  <ul>
+    <li><strong>Objectifs actifs</strong> — nombre total de projets en cours</li>
+    <li><strong>Total épargné</strong> — somme de toutes les contributions sur tous les objectifs</li>
+    <li><strong>Progression globale</strong> — pourcentage moyen d'atteinte de tous vos objectifs</li>
+  </ul>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 11 — PRÉVISIONS
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">11</div>
+    <h1>Prévisions &amp; Simulations</h1>
+  </div>
+
+  <p>La page Prévisions vous permet de <strong>simuler la croissance de votre épargne</strong> en tenant compte des intérêts composés. C'est l'outil idéal pour planifier votre retraite, un investissement en bourse ou une assurance-vie.</p>
+
+  <div class="callout callout-info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body">
+      <div class="callout-title">Qu'est-ce que les intérêts composés ?</div>
+      <div class="callout-text">Chaque mois, vos intérêts sont ajoutés à votre capital et génèrent eux-mêmes des intérêts. C'est l'effet "boule de neige" de l'épargne. Sur 20 ans à 5%, 500€/mois peuvent générer plus de 85 000€ d'intérêts.</div>
+    </div>
+  </div>
+
+  <h2>Le simulateur interactif</h2>
+
+  <p>Le simulateur se calcule <strong>en temps réel</strong> à mesure que vous modifiez les paramètres. Pas besoin de cliquer sur "Calculer".</p>
+
+  <table>
+    <tr><th>Paramètre</th><th>Description</th><th>Exemple</th></tr>
+    <tr>
+      <td><strong>Capital initial</strong></td>
+      <td>La somme de départ déjà disponible</td>
+      <td>5 000 €</td>
+    </tr>
+    <tr>
+      <td><strong>Versement mensuel</strong></td>
+      <td>La somme que vous ajoutez chaque mois</td>
+      <td>300 €/mois</td>
+    </tr>
+    <tr>
+      <td><strong>Taux annuel (%)</strong></td>
+      <td>Le rendement annuel estimé de votre placement</td>
+      <td>4 à 7% pour un ETF World</td>
+    </tr>
+    <tr>
+      <td><strong>Durée (années)</strong></td>
+      <td>Sur combien d'années simuler</td>
+      <td>20 ans, 30 ans...</td>
+    </tr>
+  </table>
+
+  <h2>Résultats affichés</h2>
+  <div class="cards">
+    <div class="card" style="border-color: rgba(16,185,129,0.3);">
+      <div class="card-icon" style="color: var(--green)">💰</div>
+      <div class="card-title" style="color: var(--green)">Capital final</div>
+      <div class="card-desc">Le montant total accumulé à la fin de la période, intérêts inclus.</div>
+    </div>
+    <div class="card" style="border-color: rgba(99,102,241,0.3);">
+      <div class="card-icon" style="color: var(--primary-light)">📥</div>
+      <div class="card-title" style="color: var(--primary-light)">Total versé</div>
+      <div class="card-desc">La somme que vous aurez effectivement mise de côté (capital initial + tous vos versements).</div>
+    </div>
+    <div class="card" style="border-color: rgba(245,158,11,0.3);">
+      <div class="card-icon" style="color: var(--amber)">✨</div>
+      <div class="card-title" style="color: var(--amber)">Intérêts générés</div>
+      <div class="card-desc">La différence : ce que votre argent a produit grâce aux intérêts composés.</div>
+    </div>
+  </div>
+
+  <h2>Sauvegarder un scénario</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "+ Nouveau scénario" (colonne gauche)</div>
+        <div class="step-desc">Un formulaire s'ouvre pour nommer votre scénario et saisir les paramètres.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Nommez votre scénario et sauvegardez</div>
+        <div class="step-desc">Ex: "Plan retraite agressif", "Livret A 3%", "ETF World optimiste". Vous pouvez créer plusieurs scénarios et basculer entre eux d'un clic pour comparer les résultats.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 12 — PARAMÈTRES
+═══════════════════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-header">
+    <div class="section-number">12</div>
+    <h1>Paramètres — Langue &amp; Export</h1>
+  </div>
+
+  <p>La page Paramètres est accessible via ⚙ Paramètres dans le menu de gauche.</p>
+
+  <h2>Changer la langue</h2>
+  <p>L'application est disponible en <strong>Français 🇫🇷</strong> et en <strong>English 🇬🇧</strong>. Cliquez simplement sur le bouton de la langue souhaitée. Le changement est instantané et mémorisé pour vos prochaines connexions.</p>
+
+  <h2>Exporter vos données</h2>
+  <p>Vous pouvez télécharger l'intégralité de vos données dans un fichier JSON à tout moment. Ce fichier contient :</p>
+  <ul>
+    <li>Toutes vos transactions de revenus et dépenses</li>
+    <li>Vos catégories personnalisées</li>
+    <li>Vos règles récurrentes</li>
+    <li>Vos objectifs d'épargne et contributions</li>
+    <li>Vos scénarios de prévision</li>
+  </ul>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Cliquez sur "⬇ Exporter JSON"</div>
+        <div class="step-desc">Le bouton vert dans la section Export / Import.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Sauvegardez le fichier téléchargé</div>
+        <div class="step-desc">Un fichier <code>income-manager-export-YYYY-MM-DD.json</code> est téléchargé automatiquement dans votre dossier Téléchargements.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-warning">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Sauvegardez régulièrement !</div>
+      <div class="callout-text">Pensez à exporter vos données régulièrement (une fois par mois) et à conserver le fichier en lieu sûr. En cas de réinstallation, vos données seraient perdues sans cette sauvegarde.</div>
+    </div>
+  </div>
+
+  <h2>Informations du compte</h2>
+  <p>La section "Compte" affiche votre prénom, votre email et votre rôle (Administrateur ou Membre). Ces informations sont en lecture seule dans cette version.</p>
+
+  <hr class="divider">
+
+  <div class="section-header">
+    <div class="section-number">13</div>
+    <h1>Questions fréquentes</h1>
+  </div>
+
+  <h3>J'ai oublié mon mot de passe, comment faire ?</h3>
+  <p>L'application n'envoie pas d'email de récupération (elle est auto-hébergée, sans service email). Si vous avez oublié votre mot de passe, un administrateur peut mettre à jour la base de données directement, ou vous pouvez créer un nouveau foyer.</p>
+
+  <h3>L'application est-elle accessible depuis mon téléphone ?</h3>
+  <p>Oui, l'interface est responsive (adaptée aux mobiles). Depuis votre réseau local, accédez à <code>http://[IP-de-votre-ordinateur]</code>. Pour un accès depuis l'extérieur, configurez un reverse proxy (Nginx, Caddy) ou un VPN.</p>
+
+  <h3>Les graphiques ne s'affichent pas correctement</h3>
+  <p>Assurez-vous que votre navigateur est à jour. L'application est optimisée pour Chrome, Firefox et Edge dans leurs versions récentes (2023+).</p>
+
+  <h3>Comment supprimer toutes mes données et recommencer ?</h3>
+  <p>Arrêtez l'application (<code>docker compose down</code>), supprimez le dossier <code>data/</code>, puis relancez (<code>docker compose up -d</code>). L'application démarrera comme une installation neuve.</p>
+
+  <h3>Puis-je utiliser l'application sur plusieurs ordinateurs ?</h3>
+  <p>Oui, installez l'application sur un seul ordinateur (serveur) et accédez-y depuis d'autres appareils via le réseau local. Tous les membres du foyer utilisent la même instance.</p>
+
+  <div class="footer">
+    <span>Income Manager v1.0 — Documentation d'installation et d'utilisation</span>
+    <span>Mai 2026</span>
+  </div>
+</div>
+
+</body>
+</html>
