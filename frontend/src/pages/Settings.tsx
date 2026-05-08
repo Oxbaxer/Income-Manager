@@ -485,6 +485,389 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   )
 }
 
+// ────────────────────────────────────────────────────────────────────────────────
+// CategoriesSection
+// ────────────────────────────────────────────────────────────────────────────────
+
+const PRESET_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#14b8a6']
+
+function CategoriesSection() {
+  const [tab, setTab] = useState<'expenses' | 'income'>('expenses')
+  const [expenseCats, setExpenseCats] = useState<ExpenseCategory[]>([])
+  const [incomeCats, setIncomeCats] = useState<IncomeCategory[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // New category form state
+  const [showNewExpense, setShowNewExpense] = useState(false)
+  const [newExpenseName, setNewExpenseName] = useState('')
+  const [newExpenseIcon, setNewExpenseIcon] = useState('💰')
+  const [newExpenseColor, setNewExpenseColor] = useState('#6366f1')
+  const [savingExpense, setSavingExpense] = useState(false)
+
+  const [showNewIncome, setShowNewIncome] = useState(false)
+  const [newIncomeName, setNewIncomeName] = useState('')
+  const [savingIncome, setSavingIncome] = useState(false)
+
+  // Rename state
+  const [renamingExpenseId, setRenamingExpenseId] = useState<number | null>(null)
+  const [renameExpenseValue, setRenameExpenseValue] = useState('')
+  const [renameExpenseIcon, setRenameExpenseIcon] = useState('')
+  const [renameExpenseColor, setRenameExpenseColor] = useState('')
+
+  const [renamingIncomeId, setRenamingIncomeId] = useState<number | null>(null)
+  const [renameIncomeValue, setRenameIncomeValue] = useState('')
+
+  // Error messages
+  const [deleteError, setDeleteError] = useState('')
+
+  const fetchCategories = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [ec, ic] = await Promise.all([
+        api.get<ExpenseCategory[]>('/api/expenses/categories'),
+        api.get<IncomeCategory[]>('/api/income/categories'),
+      ])
+      setExpenseCats(ec)
+      setIncomeCats(ic)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchCategories() }, [fetchCategories])
+
+  // ── Expense handlers ──
+
+  const handleCreateExpense = async () => {
+    if (!newExpenseName.trim()) return
+    setSavingExpense(true)
+    try {
+      await api.post('/api/expenses/categories', { name: newExpenseName.trim(), icon: newExpenseIcon, color: newExpenseColor })
+      setNewExpenseName('')
+      setNewExpenseIcon('💰')
+      setNewExpenseColor('#6366f1')
+      setShowNewExpense(false)
+      await fetchCategories()
+    } catch (e: any) {
+      alert(e?.error?.message || e?.message || 'Erreur lors de la création')
+    } finally {
+      setSavingExpense(false)
+    }
+  }
+
+  const startRenameExpense = (cat: ExpenseCategory) => {
+    setRenamingExpenseId(cat.id)
+    setRenameExpenseValue(cat.name)
+    setRenameExpenseIcon(cat.icon ?? '💰')
+    setRenameExpenseColor(cat.color ?? '#6366f1')
+    setDeleteError('')
+  }
+
+  const handleRenameExpense = async (id: number) => {
+    if (!renameExpenseValue.trim()) return
+    try {
+      await api.patch(`/api/expenses/categories/${id}`, { name: renameExpenseValue.trim(), icon: renameExpenseIcon, color: renameExpenseColor })
+      setRenamingExpenseId(null)
+      await fetchCategories()
+    } catch (e: any) {
+      alert(e?.error?.message || e?.message || 'Erreur lors du renommage')
+    }
+  }
+
+  const handleDeleteExpense = async (id: number) => {
+    setDeleteError('')
+    if (!confirm('Supprimer cette catégorie ?')) return
+    try {
+      await api.delete(`/api/expenses/categories/${id}`)
+      await fetchCategories()
+    } catch (e: any) {
+      setDeleteError(e?.error || e?.message || 'Impossible de supprimer cette catégorie')
+    }
+  }
+
+  // ── Income handlers ──
+
+  const handleCreateIncome = async () => {
+    if (!newIncomeName.trim()) return
+    setSavingIncome(true)
+    try {
+      await api.post('/api/income/categories', { name: newIncomeName.trim() })
+      setNewIncomeName('')
+      setShowNewIncome(false)
+      await fetchCategories()
+    } catch (e: any) {
+      alert(e?.error?.message || e?.message || 'Erreur lors de la création')
+    } finally {
+      setSavingIncome(false)
+    }
+  }
+
+  const startRenameIncome = (cat: IncomeCategory) => {
+    setRenamingIncomeId(cat.id)
+    setRenameIncomeValue(cat.name)
+    setDeleteError('')
+  }
+
+  const handleRenameIncome = async (id: number) => {
+    if (!renameIncomeValue.trim()) return
+    try {
+      await api.patch(`/api/income/categories/${id}`, { name: renameIncomeValue.trim() })
+      setRenamingIncomeId(null)
+      await fetchCategories()
+    } catch (e: any) {
+      alert(e?.error?.message || e?.message || 'Erreur lors du renommage')
+    }
+  }
+
+  const handleDeleteIncome = async (id: number) => {
+    setDeleteError('')
+    if (!confirm('Supprimer cette catégorie ?')) return
+    try {
+      await api.delete(`/api/income/categories/${id}`)
+      await fetchCategories()
+    } catch (e: any) {
+      setDeleteError(e?.error || e?.message || 'Impossible de supprimer cette catégorie')
+    }
+  }
+
+  if (loading) return <div className="text-sm text-white/40 py-4 text-center">Chargement...</div>
+
+  return (
+    <div className="space-y-4">
+      {/* Tabs */}
+      <div className="flex gap-1 bg-surface-2 rounded-lg p-1">
+        <button
+          onClick={() => { setTab('expenses'); setDeleteError('') }}
+          className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'expenses' ? 'bg-surface text-white shadow' : 'text-white/40 hover:text-white'}`}
+        >
+          Dépenses
+        </button>
+        <button
+          onClick={() => { setTab('income'); setDeleteError('') }}
+          className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${tab === 'income' ? 'bg-surface text-white shadow' : 'text-white/40 hover:text-white'}`}
+        >
+          Revenus
+        </button>
+      </div>
+
+      {deleteError && (
+        <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg p-2.5">{deleteError}</p>
+      )}
+
+      {/* Expense categories */}
+      {tab === 'expenses' && (
+        <div className="space-y-2">
+          {expenseCats.length === 0 && (
+            <p className="text-sm text-white/40 text-center py-2">Aucune catégorie de dépense</p>
+          )}
+          {expenseCats.map(cat => (
+            <div key={cat.id} className="flex items-center gap-2 p-3 bg-surface-2 rounded-lg border border-border">
+              {renamingExpenseId === cat.id ? (
+                <div className="flex-1 flex items-center gap-2 flex-wrap">
+                  {/* Emoji icon */}
+                  <input
+                    value={renameExpenseIcon}
+                    onChange={e => setRenameExpenseIcon(e.target.value)}
+                    className="w-12 bg-surface border border-border rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                    maxLength={4}
+                  />
+                  {/* Name */}
+                  <input
+                    autoFocus
+                    value={renameExpenseValue}
+                    onChange={e => setRenameExpenseValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleRenameExpense(cat.id); if (e.key === 'Escape') setRenamingExpenseId(null) }}
+                    className="flex-1 min-w-[100px] bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                  />
+                  {/* Color swatches */}
+                  <div className="flex gap-1.5">
+                    {PRESET_COLORS.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setRenameExpenseColor(c)}
+                        className={`w-5 h-5 rounded-full border-2 transition-all ${renameExpenseColor === c ? 'border-white scale-110' : 'border-transparent'}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleRenameExpense(cat.id)} className="px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-medium hover:bg-primary/30 transition-all">
+                      ✓
+                    </button>
+                    <button onClick={() => setRenamingExpenseId(null)} className="px-2.5 py-1 rounded-lg border border-border text-xs text-white/40 hover:text-white transition-colors">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+                    style={{ backgroundColor: `${cat.color}22` }}
+                  >
+                    {cat.icon}
+                  </span>
+                  <span className="flex-1 text-sm text-white font-medium truncate">{cat.name}</span>
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => startRenameExpense(cat)}
+                      className="p-1.5 rounded-lg border border-border text-white/40 hover:text-primary hover:border-primary/30 transition-all text-xs"
+                      title="Renommer"
+                    >
+                      ✏
+                    </button>
+                    <button
+                      onClick={() => handleDeleteExpense(cat.id)}
+                      className="p-1.5 rounded-lg border border-border text-white/40 hover:text-red-400 hover:border-red-400/30 transition-all text-xs"
+                      title="Supprimer"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* New expense category form */}
+          {showNewExpense ? (
+            <div className="p-3 bg-surface-2 rounded-lg border border-primary/20 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  value={newExpenseIcon}
+                  onChange={e => setNewExpenseIcon(e.target.value)}
+                  className="w-12 bg-surface border border-border rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                  maxLength={4}
+                  placeholder="💰"
+                />
+                <input
+                  autoFocus
+                  value={newExpenseName}
+                  onChange={e => setNewExpenseName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreateExpense(); if (e.key === 'Escape') setShowNewExpense(false) }}
+                  placeholder="Nom de la catégorie"
+                  className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-white/40">Couleur :</span>
+                <div className="flex gap-1.5 flex-1">
+                  {PRESET_COLORS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setNewExpenseColor(c)}
+                      className={`w-5 h-5 rounded-full border-2 transition-all ${newExpenseColor === c ? 'border-white scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setShowNewExpense(false); setNewExpenseName('') }} className="px-3 py-1.5 rounded-lg border border-border text-xs text-white/40 hover:text-white transition-colors">
+                  Annuler
+                </button>
+                <button onClick={handleCreateExpense} disabled={savingExpense || !newExpenseName.trim()} className="px-3 py-1.5 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-medium hover:bg-primary/30 transition-all disabled:opacity-50">
+                  {savingExpense ? '...' : 'Créer'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowNewExpense(true)}
+              className="w-full py-2 rounded-lg border border-dashed border-border text-sm text-white/40 hover:text-white hover:border-primary/40 transition-all"
+            >
+              + Nouvelle catégorie
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Income categories */}
+      {tab === 'income' && (
+        <div className="space-y-2">
+          {incomeCats.length === 0 && (
+            <p className="text-sm text-white/40 text-center py-2">Aucune catégorie de revenu</p>
+          )}
+          {incomeCats.map(cat => (
+            <div key={cat.id} className="flex items-center gap-2 p-3 bg-surface-2 rounded-lg border border-border">
+              {renamingIncomeId === cat.id ? (
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={renameIncomeValue}
+                    onChange={e => setRenameIncomeValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleRenameIncome(cat.id); if (e.key === 'Escape') setRenamingIncomeId(null) }}
+                    className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                  />
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleRenameIncome(cat.id)} className="px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-medium hover:bg-primary/30 transition-all">
+                      ✓
+                    </button>
+                    <button onClick={() => setRenamingIncomeId(null)} className="px-2.5 py-1 rounded-lg border border-border text-xs text-white/40 hover:text-white transition-colors">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span className="w-8 h-8 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green text-sm flex-shrink-0">💵</span>
+                  <span className="flex-1 text-sm text-white font-medium truncate">{cat.name}</span>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => startRenameIncome(cat)}
+                      className="p-1.5 rounded-lg border border-border text-white/40 hover:text-primary hover:border-primary/30 transition-all text-xs"
+                      title="Renommer"
+                    >
+                      ✏
+                    </button>
+                    <button
+                      onClick={() => handleDeleteIncome(cat.id)}
+                      className="p-1.5 rounded-lg border border-border text-white/40 hover:text-red-400 hover:border-red-400/30 transition-all text-xs"
+                      title="Supprimer"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* New income category form */}
+          {showNewIncome ? (
+            <div className="p-3 bg-surface-2 rounded-lg border border-primary/20 space-y-2">
+              <input
+                autoFocus
+                value={newIncomeName}
+                onChange={e => setNewIncomeName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleCreateIncome(); if (e.key === 'Escape') setShowNewIncome(false) }}
+                placeholder="Nom de la catégorie"
+                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50"
+              />
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setShowNewIncome(false); setNewIncomeName('') }} className="px-3 py-1.5 rounded-lg border border-border text-xs text-white/40 hover:text-white transition-colors">
+                  Annuler
+                </button>
+                <button onClick={handleCreateIncome} disabled={savingIncome || !newIncomeName.trim()} className="px-3 py-1.5 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-medium hover:bg-primary/30 transition-all disabled:opacity-50">
+                  {savingIncome ? '...' : 'Créer'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowNewIncome(true)}
+              className="w-full py-2 rounded-lg border border-dashed border-border text-sm text-white/40 hover:text-white hover:border-primary/40 transition-all"
+            >
+              + Nouvelle catégorie
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function MembersSection() {
   const { user: me } = useAuthStore()
   const [members, setMembers] = useState<User[]>([])
@@ -653,6 +1036,12 @@ export function SettingsPage() {
             <MembersSection />
           </Card>
         )}
+
+        {/* Catégories */}
+        <Card>
+          <CardTitle className="mb-4">Catégories</CardTitle>
+          <CategoriesSection />
+        </Card>
 
         {/* Export / Import */}
         <Card>

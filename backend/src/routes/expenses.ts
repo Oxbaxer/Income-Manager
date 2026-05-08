@@ -143,10 +143,35 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     return reply.send(updated)
   })
 
+  fastify.patch('/api/expenses/categories/:id', { preHandler: [authenticate] }, async (req, reply) => {
+    const id = parseInt((req.params as any).id, 10)
+    const patchSchema = z.object({
+      name: z.string().min(1).max(100).optional(),
+      icon: z.string().max(10).optional(),
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    })
+    const body = patchSchema.safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+    const [updated] = await db.update(expenseCategories).set(body.data)
+      .where(and(eq(expenseCategories.id, id), eq(expenseCategories.householdId, (req.user as any).householdId)))
+      .returning()
+    if (!updated) return reply.code(404).send({ error: 'Not found' })
+    return reply.send(updated)
+  })
+
   fastify.delete('/api/expenses/categories/:id', { preHandler: [authenticate] }, async (req, reply) => {
     const id = parseInt((req.params as any).id, 10)
-    await db.delete(expenseCategories)
+    // Check if any transactions use this category
+    const usageCount = await db.select({ count: sql<number>`count(*)` })
+      .from(expenseTransactions)
+      .where(and(eq(expenseTransactions.categoryId, id), eq(expenseTransactions.householdId, (req.user as any).householdId)))
+    if (Number(usageCount[0].count) > 0) {
+      return reply.code(409).send({ error: `Cette catégorie est utilisée par ${usageCount[0].count} transaction(s) et ne peut pas être supprimée.` })
+    }
+    const deleted = await db.delete(expenseCategories)
       .where(and(eq(expenseCategories.id, id), eq(expenseCategories.householdId, (req.user as any).householdId)))
+      .returning()
+    if (!deleted.length) return reply.code(404).send({ error: 'Not found' })
     return reply.send({ ok: true })
   })
 }
