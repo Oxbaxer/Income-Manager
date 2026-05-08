@@ -34,6 +34,10 @@ export interface IncomeTransaction {
   description: string
   notes?: string
   isPayslip: boolean
+  operationType?: string
+  subcategory?: string
+  bankReference?: string
+  bankLabel?: string
   createdAt: string
 }
 
@@ -57,6 +61,10 @@ export interface ExpenseTransaction {
   description: string
   notes?: string
   recurringId?: number
+  operationType?: string
+  subcategory?: string
+  bankReference?: string
+  bankLabel?: string
   createdAt: string
 }
 
