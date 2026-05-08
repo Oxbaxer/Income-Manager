@@ -1,7 +1,38 @@
+# Dépendances — jamais commitées, régénérées via `npm install`
 node_modules/
+.pnp
+.pnp.js
+
+# Build
 dist/
-.env
-data/*.db
+build/
+*.tsbuildinfo
+
+# Base de données (données locales)
+data/
+backend/data/
+*.db
 *.db-shm
 *.db-wal
+
+# Variables d'environnement (contient les secrets JWT)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# IDE / éditeur
+.vscode/
+.idea/
+*.swp
+
+# Claude Code (configuration locale uniquement)
+.claude/settings.local.json
