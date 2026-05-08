@@ -28,9 +28,24 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM ── Ajouter le dossier de node.exe au PATH pour que npm soit accessible ──
-for /f "delims=" %%i in ('where node') do set "NODE_DIR=%%~dpi"
-set "PATH=%NODE_DIR%;%PATH%"
+REM ── Localiser npm.cmd dans le même dossier que node.exe ──────────────────
+for /f "delims=" %%i in ('where node') do (
+    set "NODE_DIR=%%~dpi"
+    goto :node_found
+)
+:node_found
+set "NPM=%NODE_DIR%npm.cmd"
+
+REM ── Fallback : npm.cmd dans %APPDATA%\npm ────────────────────────────────
+if not exist "%NPM%" (
+    if exist "%APPDATA%\npm\npm.cmd" set "NPM=%APPDATA%\npm\npm.cmd"
+)
+
+if not exist "%NPM%" (
+    echo  [ERREUR] npm introuvable. Reinstallez Node.js depuis https://nodejs.org
+    pause
+    exit /b 1
+)
 
 for /f %%v in ('node --version') do echo  [OK] Node.js %%v detecte.
 
@@ -40,7 +55,7 @@ if not exist "backend\node_modules" (
     echo  [INSTALLATION] Premiere utilisation - installation des composants...
     echo  ^(Cela peut prendre 2 a 3 minutes, merci de patienter^)
     echo.
-    call npm run install:all
+    call "%NPM%" run install:all
     if %errorlevel% neq 0 (
         echo.
         echo  [ERREUR] L'installation a echoue. Verifiez votre connexion Internet.
@@ -72,5 +87,5 @@ echo.
 echo  [DEMARRAGE] Backend + Frontend en cours...
 echo  Ouvrez votre navigateur sur : http://localhost:5173
 echo.
-npm run dev
+call "%NPM%" run dev
 pause
