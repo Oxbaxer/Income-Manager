@@ -50,17 +50,20 @@ if not exist "%NPM%" (
 for /f %%v in ('node --version') do echo  [OK] Node.js %%v detecte.
 
 REM ── 2. Installer les dépendances si nécessaire ───────────────────────────
-if not exist "backend\node_modules" (
+if not exist "node_modules" (
     echo.
     echo  [INSTALLATION] Premiere utilisation - installation des composants...
     echo  ^(Cela peut prendre 2 a 3 minutes, merci de patienter^)
     echo.
+    call "%NPM%" install
+    if %errorlevel% neq 0 (
+        echo  [ERREUR] L'installation a echoue. Verifiez votre connexion Internet.
+        pause & exit /b 1
+    )
     call "%NPM%" run install:all
     if %errorlevel% neq 0 (
-        echo.
         echo  [ERREUR] L'installation a echoue. Verifiez votre connexion Internet.
-        pause
-        exit /b 1
+        pause & exit /b 1
     )
     echo.
     echo  [OK] Installation terminee.
