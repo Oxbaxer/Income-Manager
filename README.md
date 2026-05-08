@@ -1,76 +1,167 @@
 # Income Manager — Gestion Budgétaire Familiale
 
-Application web self-hostée de gestion budgétaire familiale. Interface néo-futuriste, multi-utilisateurs, bilingue FR/EN.
+Application web **self-hostée** de gestion budgétaire familiale. Interface néo-futuriste, multi-utilisateurs, bilingue FR/EN.
+
+![Stack](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react) ![Stack](https://img.shields.io/badge/Node.js-Fastify-000000?style=flat&logo=fastify) ![Stack](https://img.shields.io/badge/SQLite-@libsql-003B57?style=flat&logo=sqlite) ![Stack](https://img.shields.io/badge/Docker-ready-2496ED?style=flat&logo=docker)
+
+---
 
 ## Fonctionnalités
 
-- **Revenus** — CRUD avec saisie fiche de paie (brut/net/cotisations)
-- **Dépenses** — CRUD avec catégories colorées et icônes
-- **Transactions récurrentes** — règles avec exécution automatique horaire (cron)
-- **Tableau de bord** — KPIs, 4 graphiques interactifs, transactions récentes
-- **Objectifs d'épargne** — CRUD, barre de progression, contributions manuelles ou récurrentes
-- **Prévisions** — simulateur interactif d'intérêts composés, scénarios sauvegardables
-- **Export JSON** — export complet des données du foyer
-- **Multi-utilisateurs** — admin + membres par foyer
-- **i18n** — Français / English
+| Page | Description |
+|------|-------------|
+| **Tableau de bord** | KPIs, 4 graphiques interactifs, transactions récentes |
+| **Revenus** | CRUD avec saisie fiche de paie (brut / net / cotisations) |
+| **Dépenses** | CRUD avec catégories colorées et icônes |
+| **Récurrents** | Règles de transactions automatiques (cron horaire) |
+| **Objectifs d'épargne** | Barre de progression, contributions manuelles ou récurrentes |
+| **Prévisions** | Simulateur d'intérêts composés, scénarios sauvegardables |
+| **Paramètres** | Gestion des membres du foyer, langue FR/EN, export JSON |
 
-## Stack
+---
+
+## Stack technique
 
 | Couche | Technologie |
 |--------|-------------|
 | Frontend | React 18 + TypeScript + Vite + Tailwind CSS + Recharts |
 | Backend | Node.js + Fastify 4 + TypeScript + Drizzle ORM |
 | Base de données | SQLite via `@libsql/client` (aucune dépendance native) |
-| Auth | JWT (access 15min + refresh 7j) |
+| Auth | JWT (access 15 min + refresh 7 jours) |
 | Déploiement | Docker Compose + nginx |
 
-## Démarrage rapide (Docker)
+---
+
+## Installation
+
+### Prérequis
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installé et démarré
+- Git (pour cloner le repo)
+
+> **Pas de Docker ?** Voir la section [Installation sans Docker](#installation-sans-docker) plus bas.
+
+---
+
+### 🐳 Installation avec Docker (recommandée)
+
+**1. Cloner le dépôt**
 
 ```bash
-# 1. Copier le fichier d'environnement
-cp .env.example .env
-
-# 2. Éditer .env : renseigner JWT_SECRET et JWT_REFRESH_SECRET
-#    (chaînes aléatoires de 32+ caractères)
-nano .env
-
-# 3. Lancer
-docker compose up -d
-
-# L'application est disponible sur http://localhost
+git clone https://github.com/Oxbaxer/Income-Manager.git
+cd Income-Manager
 ```
 
-## Développement local
+**2. Configurer les variables d'environnement**
+
+```bash
+cp .env.example .env
+```
+
+Ouvrez le fichier `.env` et renseignez les deux clés secrètes (chaînes aléatoires d'au moins 32 caractères) :
+
+```env
+JWT_SECRET=remplacez_par_une_chaine_aleatoire_longue
+JWT_REFRESH_SECRET=remplacez_par_une_autre_chaine_aleatoire
+```
+
+> **Astuce** : générez des clés sécurisées avec `openssl rand -hex 32` (Linux/Mac) ou `[System.Web.Security.Membership]::GeneratePassword(32, 0)` (PowerShell).
+
+**3. Lancer l'application**
+
+```bash
+docker compose up -d
+```
+
+Docker va télécharger les images, construire et démarrer les deux conteneurs (backend + frontend nginx). La première fois peut prendre 2–3 minutes.
+
+**4. Ouvrir l'application**
+
+Rendez-vous sur **http://localhost** dans votre navigateur.
+
+**5. Créer votre foyer**
+
+Au premier lancement, cliquez sur **"Créer un foyer"**, renseignez votre nom, email et mot de passe. Vous devenez automatiquement administrateur.
+
+---
+
+### Commandes Docker utiles
+
+```bash
+# Vérifier que les conteneurs tournent
+docker compose ps
+
+# Voir les logs en temps réel
+docker compose logs -f
+
+# Arrêter l'application
+docker compose down
+
+# Mettre à jour après un git pull
+docker compose down
+docker compose up -d --build
+
+# Sauvegarder la base de données
+cp data/income-manager.db data/income-manager.db.backup
+```
+
+---
+
+### Installation sans Docker
 
 **Prérequis** : Node.js 20+
 
+**1. Cloner et installer les dépendances**
+
 ```bash
-# Installer les dépendances
+git clone https://github.com/Oxbaxer/Income-Manager.git
+cd Income-Manager
+
 cd backend && npm install
 cd ../frontend && npm install
-
-# Lancer (dans deux terminaux séparés)
-cd backend && npm run dev     # API sur http://localhost:3001
-cd frontend && npm run dev    # UI  sur http://localhost:5173
 ```
+
+**2. Configurer l'environnement backend**
+
+```bash
+cd backend
+cp ../.env.example .env
+# Éditez .env et renseignez JWT_SECRET et JWT_REFRESH_SECRET
+```
+
+**3. Lancer (deux terminaux séparés)**
+
+```bash
+# Terminal 1 — Backend (API sur http://localhost:3001)
+cd backend && npm run dev
+
+# Terminal 2 — Frontend (UI sur http://localhost:5173)
+cd frontend && npm run dev
+```
+
+Ouvrez **http://localhost:5173** dans votre navigateur.
+
+---
 
 ## Variables d'environnement
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
-| `JWT_SECRET` | Clé de signature des tokens d'accès | — (obligatoire) |
-| `JWT_REFRESH_SECRET` | Clé de signature des tokens de refresh | — (obligatoire) |
+| `JWT_SECRET` | Clé de signature des tokens d'accès | — **(obligatoire)** |
+| `JWT_REFRESH_SECRET` | Clé de signature des tokens de refresh | — **(obligatoire)** |
 | `PORT` | Port du backend | `3001` |
 | `DATABASE_PATH` | Chemin du fichier SQLite | `./data/income-manager.db` |
-| `NODE_ENV` | Environnement | `development` |
+| `NODE_ENV` | Environnement (`development` / `production`) | `development` |
+
+---
 
 ## Structure du projet
 
 ```
-Income Manager/
+Income-Manager/
 ├── backend/
 │   ├── src/
-│   │   ├── db/           # Schema Drizzle, migrations, client SQLite
+│   │   ├── db/           # Schéma Drizzle, migrations, client SQLite
 │   │   ├── routes/       # auth, income, expenses, analytics,
 │   │   │                 # recurring, goals, projections, export
 │   │   ├── services/     # cron.ts — exécution des règles récurrentes
@@ -80,19 +171,40 @@ Income Manager/
 │   ├── src/
 │   │   ├── pages/        # Dashboard, Income, Expenses, Recurring,
 │   │   │                 # Goals, Projections, Settings
-│   │   ├── components/   # layout (Sidebar, PageShell), ui, charts
+│   │   ├── components/   # Sidebar, PageShell, charts, ui
 │   │   ├── stores/       # auth (Zustand)
 │   │   ├── api/          # client fetch avec auto-refresh JWT
 │   │   └── i18n/         # fr, en
 │   ├── Dockerfile
 │   └── nginx.conf
+├── docs/
+│   └── documentation.html  # Documentation utilisateur complète
 ├── docker-compose.yml
 └── .env.example
 ```
 
-## Premier lancement
+---
 
-1. Accédez à l'application
-2. Cliquez **Créer un foyer** et renseignez vos informations
-3. Les catégories par défaut sont créées automatiquement
-4. Commencez à saisir vos revenus et dépenses
+## Gestion des utilisateurs
+
+L'administrateur du foyer peut, depuis **Paramètres → Membres du foyer** :
+
+- **Inviter** un nouveau membre (nom, email, mot de passe, rôle)
+- **Promouvoir** un membre en administrateur (↑)
+- **Rétrograder** un administrateur en membre (↓)
+- **Supprimer** un membre (✕)
+
+> Le dernier administrateur ne peut pas être rétrogradé ni supprimé.
+
+---
+
+## Documentation
+
+Une documentation complète (installation + guide d'utilisation pas-à-pas) est disponible dans [`docs/documentation.html`](docs/documentation.html).  
+Ouvrez ce fichier dans un navigateur et utilisez **Fichier → Imprimer → Enregistrer en PDF** pour obtenir la version PDF.
+
+---
+
+## Licence
+
+MIT
