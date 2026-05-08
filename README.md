@@ -117,27 +117,23 @@ cp data/income-manager.db data/income-manager.db.backup
 git clone https://github.com/Oxbaxer/Income-Manager.git
 cd Income-Manager
 
-cd backend && npm install
-cd ../frontend && npm install
+npm run install:all   # installe backend + frontend en une commande
 ```
 
 **2. Configurer l'environnement backend**
 
 ```bash
-cd backend
-cp ../.env.example .env
+cp .env.example .env
 # Éditez .env et renseignez JWT_SECRET et JWT_REFRESH_SECRET
 ```
 
-**3. Lancer (deux terminaux séparés)**
+**3. Lancer (une seule commande)**
 
 ```bash
-# Terminal 1 — Backend (API sur http://localhost:3001)
-cd backend && npm run dev
-
-# Terminal 2 — Frontend (UI sur http://localhost:5173)
-cd frontend && npm run dev
+npm run dev
 ```
+
+Backend (`:3001`) et frontend (`:5173`) démarrent simultanément dans le même terminal.
 
 Ouvrez **http://localhost:5173** dans votre navigateur.
 
