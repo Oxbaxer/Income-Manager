@@ -2,32 +2,39 @@
 title Income Manager
 cd /d "%~dp0"
 
+REM ── Charger le PATH utilisateur complet (résout le problème Node.js double-clic)
+for /f "tokens=2*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "USER_PATH=%%b"
+for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH 2^>nul') do set "SYS_PATH=%%b"
+set "PATH=%SYS_PATH%;%USER_PATH%;%PATH%"
+
 echo.
 echo  ================================================
-echo   Income Manager — Démarrage
+echo   Income Manager - Demarrage
 echo  ================================================
 echo.
 
 REM ── 1. Vérifier que Node.js est installé ─────────────────────────────────
-node --version >nul 2>&1
+where node >nul 2>&1
 if %errorlevel% neq 0 (
     echo  [ERREUR] Node.js n'est pas installe sur cet ordinateur.
     echo.
     echo  Veuillez telecharger et installer Node.js depuis :
-    echo  https://nodejs.org  (choisir la version "LTS")
+    echo  https://nodejs.org  ^(choisir la version "LTS"^)
     echo.
-    echo  Apres l'installation, relancez ce fichier.
+    echo  IMPORTANT : Apres l'installation, REDEMARREZ votre ordinateur
+    echo  puis relancez ce fichier.
+    echo.
     pause
     exit /b 1
 )
 
-echo  [OK] Node.js detecte.
+for /f %%v in ('node --version') do echo  [OK] Node.js %%v detecte.
 
 REM ── 2. Installer les dépendances si nécessaire ───────────────────────────
 if not exist "backend\node_modules" (
     echo.
     echo  [INSTALLATION] Premiere utilisation - installation des composants...
-    echo  (Cela peut prendre 2 a 3 minutes, merci de patienter)
+    echo  ^(Cela peut prendre 2 a 3 minutes, merci de patienter^)
     echo.
     call npm run install:all
     if %errorlevel% neq 0 (
