@@ -612,7 +612,7 @@
     <div class="toc-item"><span class="toc-num">9</span><span class="toc-label">Transactions Récurrentes</span><span class="toc-page">10</span></div>
     <div class="toc-item"><span class="toc-num">10</span><span class="toc-label">Objectifs d'épargne</span><span class="toc-page">11</span></div>
     <div class="toc-item"><span class="toc-num">11</span><span class="toc-label">Prévisions & Simulations</span><span class="toc-page">12</span></div>
-    <div class="toc-item"><span class="toc-num">12</span><span class="toc-label">Paramètres — Langue & Export</span><span class="toc-page">13</span></div>
+    <div class="toc-item"><span class="toc-num">12</span><span class="toc-label">Paramètres — Membres, Langue & Export</span><span class="toc-page">13</span></div>
     <div class="toc-item"><span class="toc-num">13</span><span class="toc-label">Questions fréquentes</span><span class="toc-page">14</span></div>
   </div>
 
@@ -1403,10 +1403,53 @@
 
   <div class="section-header">
     <div class="section-number">12</div>
-    <h1>Paramètres — Langue &amp; Export</h1>
+    <h1>Paramètres — Membres, Langue &amp; Export</h1>
   </div>
 
   <p>La page Paramètres est accessible via ⚙ Paramètres dans le menu de gauche.</p>
+
+  <h2>Gérer les membres du foyer <span style="font-size:0.7em;background:#6366f1/20;color:#818cf8;border:1px solid rgba(99,102,241,0.3);border-radius:4px;padding:2px 8px;margin-left:8px;">Admin uniquement</span></h2>
+  <p>En tant qu'administrateur, vous pouvez gérer les comptes de tous les membres de votre foyer.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Inviter un nouveau membre</div>
+        <div class="step-desc">Cliquez sur <strong>+ Inviter un membre</strong>. Renseignez son nom, son email, un mot de passe provisoire et son rôle (Membre ou Administrateur). Cliquez sur <strong>Créer le compte</strong>.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Changer le rôle d'un membre</div>
+        <div class="step-desc">Cliquez sur le bouton <strong>↑</strong> pour promouvoir un membre en administrateur, ou <strong>↓</strong> pour rétrograder un administrateur en membre simple.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Supprimer un membre</div>
+        <div class="step-desc">Cliquez sur le bouton <strong>✕</strong> à droite du membre concerné, puis confirmez la suppression. <em>Note : vous ne pouvez pas vous supprimer vous-même.</em></div>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Rôle</th><th>Droits</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Administrateur</strong></td><td>Accès complet + gestion des membres (inviter, modifier rôle, supprimer)</td></tr>
+      <tr><td><strong>Membre</strong></td><td>Consultation et saisie de transactions — ne peut pas gérer les membres</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-info">
+    <div class="callout-icon">🔒</div>
+    <div class="callout-body">
+      <div class="callout-title">Protection du dernier administrateur</div>
+      <div class="callout-text">Il doit toujours rester au moins un administrateur dans le foyer. L'application bloque automatiquement toute action qui supprimerait le dernier admin.</div>
+    </div>
+  </div>
 
   <h2>Changer la langue</h2>
   <p>L'application est disponible en <strong>Français 🇫🇷</strong> et en <strong>English 🇬🇧</strong>. Cliquez simplement sur le bouton de la langue souhaitée. Le changement est instantané et mémorisé pour vos prochaines connexions.</p>

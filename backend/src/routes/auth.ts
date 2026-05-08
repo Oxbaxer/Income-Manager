@@ -162,6 +162,44 @@ export async function authRoutes(fastify: FastifyInstance) {
     return reply.send(members)
   })
 
+  fastify.patch('/api/users/:id/role', { preHandler: [authenticate] }, async (req, reply) => {
+    if ((req.user as any).role !== 'admin') return reply.code(403).send({ error: 'Admin required' })
+
+    const id = parseInt((req.params as any).id, 10)
+    const { role } = req.body as any
+
+    if (!['admin', 'member'].includes(role)) return reply.code(400).send({ error: 'Invalid role' })
+
+    const target = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.id, id) })
+    if (!target || target.householdId !== (req.user as any).householdId) {
+      return reply.code(404).send({ error: 'User not found' })
+    }
+
+    if (role === 'member' && target.id === (req.user as any).sub) {
+      const admins = await db.select().from(users).where(eq(users.householdId, (req.user as any).householdId))
+      const adminCount = admins.filter(u => u.role === 'admin').length
+      if (adminCount <= 1) return reply.code(400).send({ error: 'Cannot demote the last admin' })
+    }
+
+    await db.update(users).set({ role }).where(eq(users.id, id))
+    return reply.send({ ok: true })
+  })
+
+  fastify.delete('/api/users/:id', { preHandler: [authenticate] }, async (req, reply) => {
+    if ((req.user as any).role !== 'admin') return reply.code(403).send({ error: 'Admin required' })
+
+    const id = parseInt((req.params as any).id, 10)
+    if (id === (req.user as any).sub) return reply.code(400).send({ error: 'Cannot delete yourself' })
+
+    const target = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.id, id) })
+    if (!target || target.householdId !== (req.user as any).householdId) {
+      return reply.code(404).send({ error: 'User not found' })
+    }
+
+    await db.delete(users).where(eq(users.id, id))
+    return reply.send({ ok: true })
+  })
+
   fastify.patch('/api/users/:id/locale', { preHandler: [authenticate] }, async (req, reply) => {
     const { locale } = req.body as any
     const id = parseInt((req.params as any).id, 10)
