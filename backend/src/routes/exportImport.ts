@@ -8,8 +8,23 @@ import {
 import { eq, sql } from 'drizzle-orm'
 import { authenticate } from '../middleware/authenticate'
 
+function formatDateToDDMMYYYY(isoDate: string): string {
+  const parts = isoDate.split('-')
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+  return isoDate
+}
+
+function escapeCsvField(val: string | null | undefined): string {
+  if (val == null || val === '') return ''
+  const s = String(val)
+  if (s.includes(';') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
+  return s
+}
+
 export async function exportImportRoutes(fastify: FastifyInstance) {
-  // Export full household data as JSON
+  // ── Export full household data as JSON ──────────────────────────────────────
   fastify.get('/api/export', { preHandler: [authenticate] }, async (req, reply) => {
     const householdId = (req.user as any).householdId
 
@@ -65,5 +80,60 @@ export async function exportImportRoutes(fastify: FastifyInstance) {
     reply.header('Content-Type', 'application/json')
     reply.header('Content-Disposition', `attachment; filename="income-manager-export-${new Date().toISOString().split('T')[0]}.json"`)
     return reply.send(exportData)
+  })
+
+  // ── Export transactions as CSV (re-importable format) ───────────────────────
+  fastify.get('/api/export/csv', { preHandler: [authenticate] }, async (req, reply) => {
+    const householdId = (req.user as any).householdId
+
+    const [income, expenses, iCats, eCats] = await Promise.all([
+      db.select().from(incomeTransactions).where(eq(incomeTransactions.householdId, householdId)),
+      db.select().from(expenseTransactions).where(eq(expenseTransactions.householdId, householdId)),
+      db.select().from(incomeCategories).where(eq(incomeCategories.householdId, householdId)),
+      db.select().from(expenseCategories).where(eq(expenseCategories.householdId, householdId)),
+    ])
+
+    const iCatMap = new Map(iCats.map(c => [c.id, c.name]))
+    const eCatMap = new Map(eCats.map(c => [c.id, c.name]))
+
+    const header = 'Date;Libellé simplifié;Libellé opération;Référence;Type opération;Catégorie;Sous-catégorie;Débit;Crédit'
+    const rows: string[] = [header]
+
+    // Income transactions → Crédit column
+    for (const tx of income) {
+      rows.push([
+        formatDateToDDMMYYYY(tx.date),
+        escapeCsvField(tx.description),
+        escapeCsvField((tx as any).bankLabel),
+        escapeCsvField((tx as any).bankReference),
+        escapeCsvField((tx as any).operationType),
+        escapeCsvField(iCatMap.get(tx.categoryId)),
+        escapeCsvField((tx as any).subcategory),
+        '',                          // Débit vide
+        tx.amount.toFixed(2),        // Crédit
+      ].join(';'))
+    }
+
+    // Expense transactions → Débit column
+    for (const tx of expenses) {
+      rows.push([
+        formatDateToDDMMYYYY(tx.date),
+        escapeCsvField(tx.description),
+        escapeCsvField((tx as any).bankLabel),
+        escapeCsvField((tx as any).bankReference),
+        escapeCsvField((tx as any).operationType),
+        escapeCsvField(eCatMap.get(tx.categoryId)),
+        escapeCsvField((tx as any).subcategory),
+        tx.amount.toFixed(2),        // Débit
+        '',                          // Crédit vide
+      ].join(';'))
+    }
+
+    // UTF-8 BOM so Excel/LibreOffice open correctly, Windows line endings
+    const csvContent = '﻿' + rows.join('\r\n')
+
+    reply.header('Content-Type', 'text/csv; charset=utf-8')
+    reply.header('Content-Disposition', `attachment; filename="income-manager-export-${new Date().toISOString().split('T')[0]}.csv"`)
+    return reply.send(csvContent)
   })
 }

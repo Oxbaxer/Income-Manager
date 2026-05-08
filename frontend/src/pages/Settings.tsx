@@ -116,7 +116,15 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
 
     const reader = new FileReader()
     reader.onload = (ev) => {
-      const text = ev.target?.result as string
+      const buf = ev.target?.result as ArrayBuffer
+      const bytes = new Uint8Array(buf)
+      // Auto-detect encoding: UTF-8 BOM (EF BB BF) → UTF-8, otherwise ISO-8859-1
+      let text: string
+      if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+        text = new TextDecoder('utf-8').decode(buf).slice(1) // strip BOM char
+      } else {
+        text = new TextDecoder('iso-8859-1').decode(buf)
+      }
       const parsed = parseCsvText(text)
       if (parsed.length === 0) {
         setFileError('Aucune ligne trouvée dans le fichier CSV.')
@@ -142,7 +150,7 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
       setPreviewRows(preview)
       setStep(2)
     }
-    reader.readAsText(file, 'ISO-8859-1')
+    reader.readAsArrayBuffer(file)
   }
 
   function goToMapping() {
@@ -974,6 +982,7 @@ export function SettingsPage() {
   const { t, i18n } = useTranslation()
   const { user } = useAuthStore()
   const [exporting, setExporting] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState(false)
   const [showImportCsv, setShowImportCsv] = useState(false)
 
   const handleExport = async () => {
@@ -994,6 +1003,27 @@ export function SettingsPage() {
       // ignore
     } finally {
       setExporting(false)
+    }
+  }
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true)
+    try {
+      const tokens = api.getTokens()
+      const res = await fetch('/api/export/csv', {
+        headers: { Authorization: `Bearer ${tokens?.access}` },
+      })
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `income-manager-export-${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // ignore
+    } finally {
+      setExportingCsv(false)
     }
   }
 
@@ -1049,8 +1079,8 @@ export function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-start justify-between gap-4 p-4 bg-surface-2 rounded-lg border border-border">
               <div>
-                <p className="text-sm font-medium text-white mb-1">Exporter les données</p>
-                <p className="text-xs text-white/40">Télécharge toutes vos transactions, objectifs et scénarios au format JSON.</p>
+                <p className="text-sm font-medium text-white mb-1">Exporter les données (JSON)</p>
+                <p className="text-xs text-white/40">Télécharge toutes vos transactions, objectifs et scénarios au format JSON (sauvegarde complète).</p>
               </div>
               <button
                 onClick={handleExport}
@@ -1063,8 +1093,22 @@ export function SettingsPage() {
 
             <div className="flex items-start justify-between gap-4 p-4 bg-surface-2 rounded-lg border border-border">
               <div>
-                <p className="text-sm font-medium text-white mb-1">Importer un CSV bancaire</p>
-                <p className="text-xs text-white/40">Importez vos transactions depuis un fichier CSV exporté de votre banque (format français, séparateur «&nbsp;;&nbsp;»).</p>
+                <p className="text-sm font-medium text-white mb-1">Exporter les transactions (CSV)</p>
+                <p className="text-xs text-white/40">Télécharge revenus + dépenses au format CSV réimportable (compatible avec l'import CSV de l'application).</p>
+              </div>
+              <button
+                onClick={handleExportCsv}
+                disabled={exportingCsv}
+                className="flex-shrink-0 px-4 py-2 bg-accent-green/20 text-accent-green border border-accent-green/30 rounded-lg text-sm font-medium hover:bg-accent-green/30 transition-all disabled:opacity-50"
+              >
+                {exportingCsv ? '⏳ Export...' : '⬇ Exporter CSV'}
+              </button>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 p-4 bg-surface-2 rounded-lg border border-border">
+              <div>
+                <p className="text-sm font-medium text-white mb-1">Importer un CSV</p>
+                <p className="text-xs text-white/40">Importez des transactions depuis un fichier CSV bancaire ou un CSV exporté depuis cette application.</p>
               </div>
               <button
                 onClick={() => setShowImportCsv(true)}
