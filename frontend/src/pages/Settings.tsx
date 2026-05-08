@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
@@ -6,7 +6,401 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api/client'
-import type { User } from '@/types'
+import type { User, ExpenseCategory, IncomeCategory } from '@/types'
+
+// ────────────────────────────────────────────────────────────────────────────────
+// CSV types
+// ────────────────────────────────────────────────────────────────────────────────
+interface CsvRow {
+  date: string
+  libelleSimple: string
+  libelleOperation: string
+  reference: string
+  typeOperation: string
+  categorie: string
+  sousCategorie: string
+  debit: string
+  credit: string
+}
+
+interface PreviewRow {
+  date: string
+  libelle: string
+  type: string
+  categorie: string
+  sousCategorie: string
+  montant: number
+  isCredit: boolean
+}
+
+// Parse latin-1 encoded CSV text
+function parseCsvText(text: string): CsvRow[] {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '')
+  if (lines.length < 2) return []
+
+  // Detect header line
+  const headerLine = lines[0]
+  const cols = headerLine.split(';').map(c => c.replace(/"/g, '').trim())
+
+  const idxDate = cols.findIndex(c => c.toLowerCase().includes('date'))
+  const idxLibSimple = cols.findIndex(c => c.toLowerCase().includes('libelle simplifie') || c.toLowerCase().includes('libellé simplifié') || c.toLowerCase().includes('libelle simplifi'))
+  const idxLibOp = cols.findIndex(c => c.toLowerCase().includes('libelle operation') || c.toLowerCase().includes('libellé opération') || (c.toLowerCase().includes('libelle') && !c.toLowerCase().includes('simplifi')))
+  const idxRef = cols.findIndex(c => c.toLowerCase().includes('reference'))
+  const idxInfo = cols.findIndex(c => c.toLowerCase().includes('information'))
+  const idxType = cols.findIndex(c => c.toLowerCase().includes('type'))
+  const idxCat = cols.findIndex(c => c.toLowerCase().includes('categorie') && !c.toLowerCase().includes('sous'))
+  const idxSousCat = cols.findIndex(c => c.toLowerCase().includes('sous'))
+  const idxDebit = cols.findIndex(c => c.toLowerCase().includes('debit') || c.toLowerCase().includes('débit'))
+  const idxCredit = cols.findIndex(c => c.toLowerCase().includes('credit') || c.toLowerCase().includes('crédit'))
+
+  const rows: CsvRow[] = []
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(';').map(c => c.replace(/^"|"$/g, '').trim())
+    if (cells.length < 2) continue
+    rows.push({
+      date: idxDate >= 0 ? (cells[idxDate] ?? '') : '',
+      libelleSimple: idxLibSimple >= 0 ? (cells[idxLibSimple] ?? '') : '',
+      libelleOperation: idxLibOp >= 0 ? (cells[idxLibOp] ?? '') : '',
+      reference: idxRef >= 0 ? (cells[idxRef] ?? '') : (idxInfo >= 0 ? (cells[idxInfo] ?? '') : ''),
+      typeOperation: idxType >= 0 ? (cells[idxType] ?? '') : '',
+      categorie: idxCat >= 0 ? (cells[idxCat] ?? '') : '',
+      sousCategorie: idxSousCat >= 0 ? (cells[idxSousCat] ?? '') : '',
+      debit: idxDebit >= 0 ? (cells[idxDebit] ?? '') : '',
+      credit: idxCredit >= 0 ? (cells[idxCredit] ?? '') : '',
+    })
+  }
+  return rows
+}
+
+function parseAmount(raw: string): number {
+  if (!raw || raw.trim() === '') return 0
+  return parseFloat(raw.replace(/\s/g, '').replace('+', '').replace('-', '').replace(',', '.')) || 0
+}
+
+function formatDisplayDate(raw: string): string {
+  const parts = raw.trim().split('/')
+  if (parts.length === 3) return `${parts[0]}/${parts[1]}/${parts[2]}`
+  return raw
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// ImportCsvModal
+// ────────────────────────────────────────────────────────────────────────────────
+function ImportCsvModal({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [rows, setRows] = useState<CsvRow[]>([])
+  const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
+  const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([])
+  const [categoryMapping, setCategoryMapping] = useState<Record<string, string>>({}) // csvCat -> 'CREATE' or 'existing name'
+  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [fileError, setFileError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load existing categories on mount
+  useEffect(() => {
+    Promise.all([
+      api.get<ExpenseCategory[]>('/api/expenses/categories'),
+      api.get<IncomeCategory[]>('/api/income/categories'),
+    ]).then(([ec, ic]) => {
+      setExpenseCategories(ec)
+      setIncomeCategories(ic)
+    }).catch(() => {})
+  }, [])
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileError('')
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const parsed = parseCsvText(text)
+      if (parsed.length === 0) {
+        setFileError('Aucune ligne trouvée dans le fichier CSV.')
+        return
+      }
+      setRows(parsed)
+
+      // Build preview rows (exclude "Transaction exclue")
+      const preview: PreviewRow[] = parsed
+        .filter(r => r.categorie.trim().toLowerCase() !== 'transaction exclue')
+        .map(r => {
+          const credit = parseAmount(r.credit)
+          const debit = parseAmount(r.debit)
+          return {
+            date: formatDisplayDate(r.date),
+            libelle: r.libelleSimple || r.libelleOperation,
+            type: r.typeOperation,
+            categorie: r.categorie,
+            sousCategorie: r.sousCategorie,
+            montant: credit > 0 ? credit : debit,
+            isCredit: credit > 0,
+          }
+        })
+      setPreviewRows(preview)
+      setStep(2)
+    }
+    reader.readAsText(file, 'ISO-8859-1')
+  }
+
+  function goToMapping() {
+    // Find unknown categories
+    const allKnownExpense = new Set(expenseCategories.map(c => c.name.toLowerCase()))
+    const allKnownIncome = new Set(incomeCategories.map(c => c.name.toLowerCase()))
+
+    const unknownCats = new Set<string>()
+    for (const r of rows) {
+      const cat = r.categorie.trim()
+      if (!cat || cat.toLowerCase() === 'transaction exclue') continue
+      const credit = parseAmount(r.credit)
+      const isCredit = credit > 0
+      const knownSet = isCredit ? allKnownIncome : allKnownExpense
+      if (!knownSet.has(cat.toLowerCase())) {
+        unknownCats.add(cat)
+      }
+    }
+
+    if (unknownCats.size === 0) {
+      setStep(4)
+      return
+    }
+
+    // Pre-populate with CREATE
+    const mapping: Record<string, string> = {}
+    for (const cat of unknownCats) {
+      mapping[cat] = 'CREATE'
+    }
+    setCategoryMapping(mapping)
+    setStep(3)
+  }
+
+  async function doImport() {
+    setImporting(true)
+    try {
+      // Apply category mapping: replace categorie in rows before sending
+      const mappedRows: CsvRow[] = rows.map(r => {
+        const cat = r.categorie.trim()
+        if (cat && categoryMapping[cat] && categoryMapping[cat] !== 'CREATE') {
+          return { ...r, categorie: categoryMapping[cat] }
+        }
+        return r
+      })
+
+      const res = await api.post<{ imported: number; skipped: number; errors: string[] }>('/api/import/csv', { rows: mappedRows })
+      setResult(res)
+    } catch (e: any) {
+      setResult({ imported: 0, skipped: 0, errors: [e?.message || 'Erreur inconnue'] })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const nonExcludedCount = rows.filter(r => r.categorie.trim().toLowerCase() !== 'transaction exclue').length
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="bg-surface border border-border rounded-2xl w-full max-w-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Importer CSV bancaire</h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              {step === 1 && 'Étape 1 / 4 — Choisir le fichier'}
+              {step === 2 && 'Étape 2 / 4 — Prévisualisation'}
+              {step === 3 && 'Étape 3 / 4 — Mapping des catégories'}
+              {step === 4 && (result ? 'Terminé' : 'Étape 4 / 4 — Confirmation')}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-xl leading-none transition-colors">✕</button>
+        </div>
+
+        {/* Step 1 — File upload */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <p className="text-sm text-white/60">
+              Sélectionnez un fichier CSV exporté depuis votre banque. Le fichier doit être séparé par <code className="bg-surface-2 px-1 rounded text-primary">;</code> et encodé en latin-1.
+            </p>
+            <div
+              className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary/40 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="text-4xl mb-3">📂</div>
+              <p className="text-sm text-white/60">Cliquer pour choisir un fichier <strong>.csv</strong></p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </div>
+            {fileError && <p className="text-xs text-red-400 bg-red-400/10 p-2 rounded">{fileError}</p>}
+            <div className="flex justify-end">
+              <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm text-white/50 hover:text-white transition-colors">
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2 — Preview */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <p className="text-sm text-white/60">
+              <span className="text-white font-medium">{previewRows.length}</span> transactions à importer
+              {rows.length > previewRows.length && (
+                <span className="text-white/40"> ({rows.length - previewRows.length} exclues)</span>
+              )}
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-surface-2">
+                    <th className="text-left px-3 py-2 text-white/40 font-medium">Date</th>
+                    <th className="text-left px-3 py-2 text-white/40 font-medium">Libellé</th>
+                    <th className="text-left px-3 py-2 text-white/40 font-medium">Type</th>
+                    <th className="text-left px-3 py-2 text-white/40 font-medium">Catégorie</th>
+                    <th className="text-left px-3 py-2 text-white/40 font-medium">Sous-cat.</th>
+                    <th className="text-right px-3 py-2 text-white/40 font-medium">Montant</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.slice(0, 10).map((r, i) => (
+                    <tr key={i} className="border-b border-border/50 hover:bg-white/2">
+                      <td className="px-3 py-2 text-white/60 font-mono">{r.date}</td>
+                      <td className="px-3 py-2 text-white/80 max-w-[180px] truncate">{r.libelle}</td>
+                      <td className="px-3 py-2 text-white/50">{r.type}</td>
+                      <td className="px-3 py-2 text-white/60">{r.categorie}</td>
+                      <td className="px-3 py-2 text-white/40">{r.sousCategorie}</td>
+                      <td className={`px-3 py-2 text-right font-mono font-semibold ${r.isCredit ? 'text-accent-green' : 'text-accent-red'}`}>
+                        {r.isCredit ? '+' : '−'}{r.montant.toFixed(2)} €
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {previewRows.length > 10 && (
+                <p className="text-xs text-white/30 text-center py-2">… et {previewRows.length - 10} autres lignes</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg border border-border text-sm text-white/50 hover:text-white transition-colors">
+                Retour
+              </button>
+              <button onClick={goToMapping} className="px-4 py-2 rounded-lg bg-primary/20 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/30 transition-all">
+                Continuer →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 — Category mapping */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <p className="text-sm text-white/60">
+              Ces catégories du CSV n'existent pas encore dans l'application. Choisissez comment les mapper.
+            </p>
+            <div className="space-y-3">
+              {Object.keys(categoryMapping).map(csvCat => (
+                <div key={csvCat} className="flex items-center gap-3 p-3 bg-surface-2 rounded-lg border border-border">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-white font-medium block truncate">{csvCat}</span>
+                    <span className="text-xs text-white/40">Catégorie du CSV</span>
+                  </div>
+                  <div className="text-white/30 text-lg">→</div>
+                  <select
+                    value={categoryMapping[csvCat]}
+                    onChange={e => setCategoryMapping(prev => ({ ...prev, [csvCat]: e.target.value }))}
+                    className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/50"
+                  >
+                    <option value="CREATE">✨ Créer la catégorie "{csvCat}"</option>
+                    <optgroup label="Catégories dépenses">
+                      {expenseCategories.map(c => (
+                        <option key={`e-${c.id}`} value={c.name}>{c.icon} {c.name}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Catégories revenus">
+                      {incomeCategories.map(c => (
+                        <option key={`i-${c.id}`} value={c.name}>{c.name}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setStep(2)} className="px-4 py-2 rounded-lg border border-border text-sm text-white/50 hover:text-white transition-colors">
+                Retour
+              </button>
+              <button onClick={() => setStep(4)} className="px-4 py-2 rounded-lg bg-primary/20 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/30 transition-all">
+                Continuer →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4 — Confirmation / Result */}
+        {step === 4 && (
+          <div className="space-y-4">
+            {!result ? (
+              <>
+                <div className="p-4 bg-surface-2 rounded-lg border border-border">
+                  <p className="text-sm text-white mb-2">Prêt à importer</p>
+                  <p className="text-sm text-white/60">
+                    <span className="font-semibold text-white">{nonExcludedCount}</span> transactions seront importées
+                    {rows.length - nonExcludedCount > 0 && (
+                      <span className="text-white/40"> ({rows.length - nonExcludedCount} lignes exclues ignorées)</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button onClick={() => setStep(Object.keys(categoryMapping).length > 0 ? 3 : 2)} className="px-4 py-2 rounded-lg border border-border text-sm text-white/50 hover:text-white transition-colors">
+                    Retour
+                  </button>
+                  <button
+                    onClick={doImport}
+                    disabled={importing}
+                    className="px-5 py-2 rounded-lg bg-accent-green/20 text-accent-green border border-accent-green/30 text-sm font-medium hover:bg-accent-green/30 transition-all disabled:opacity-50"
+                  >
+                    {importing ? '⏳ Import en cours...' : `📥 Importer ${nonExcludedCount} transactions`}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={`p-4 rounded-lg border ${result.errors.length > 0 ? 'bg-yellow-400/10 border-yellow-400/30' : 'bg-accent-green/10 border-accent-green/30'}`}>
+                  <p className="text-sm font-semibold text-white mb-2">Import terminé</p>
+                  <p className="text-sm text-white/70">
+                    ✅ <span className="font-medium text-accent-green">{result.imported}</span> transaction(s) importée(s)
+                  </p>
+                  <p className="text-sm text-white/50">
+                    ⏭ {result.skipped} ignorée(s)
+                  </p>
+                  {result.errors.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {result.errors.map((e, i) => (
+                        <p key={i} className="text-xs text-red-400">⚠ {e}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={onClose} className="px-4 py-2 rounded-lg bg-primary/20 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/30 transition-all">
+                    Fermer
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  )
+}
 
 interface InviteForm {
   name: string
@@ -198,6 +592,7 @@ export function SettingsPage() {
   const { t, i18n } = useTranslation()
   const { user } = useAuthStore()
   const [exporting, setExporting] = useState(false)
+  const [showImportCsv, setShowImportCsv] = useState(false)
 
   const handleExport = async () => {
     setExporting(true)
@@ -230,6 +625,7 @@ export function SettingsPage() {
 
   return (
     <PageShell title={t('settings.title')}>
+      {showImportCsv && <ImportCsvModal onClose={() => setShowImportCsv(false)} />}
       <div className="max-w-2xl space-y-5">
         {/* Langue */}
         <Card>
@@ -277,10 +673,17 @@ export function SettingsPage() {
               </button>
             </div>
 
-            <div className="p-4 bg-surface-2 rounded-lg border border-border">
-              <p className="text-xs text-white/30 leading-relaxed">
-                L'import de données n'est pas encore disponible dans cette version. Vous pouvez exporter vos données pour les sauvegarder.
-              </p>
+            <div className="flex items-start justify-between gap-4 p-4 bg-surface-2 rounded-lg border border-border">
+              <div>
+                <p className="text-sm font-medium text-white mb-1">Importer un CSV bancaire</p>
+                <p className="text-xs text-white/40">Importez vos transactions depuis un fichier CSV exporté de votre banque (format français, séparateur «&nbsp;;&nbsp;»).</p>
+              </div>
+              <button
+                onClick={() => setShowImportCsv(true)}
+                className="flex-shrink-0 px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-lg text-sm font-medium hover:bg-primary/30 transition-all"
+              >
+                📥 Importer CSV
+              </button>
             </div>
           </div>
         </Card>

@@ -129,4 +129,24 @@ export async function initSchema() {
   for (const sql of statements) {
     await client.execute(sql)
   }
+
+  // Migrations: add new columns if they don't exist yet
+  const migrations = [
+    `ALTER TABLE income_transactions ADD COLUMN operation_type TEXT`,
+    `ALTER TABLE income_transactions ADD COLUMN subcategory TEXT`,
+    `ALTER TABLE income_transactions ADD COLUMN bank_reference TEXT`,
+    `ALTER TABLE income_transactions ADD COLUMN bank_label TEXT`,
+    `ALTER TABLE expense_transactions ADD COLUMN operation_type TEXT`,
+    `ALTER TABLE expense_transactions ADD COLUMN subcategory TEXT`,
+    `ALTER TABLE expense_transactions ADD COLUMN bank_reference TEXT`,
+    `ALTER TABLE expense_transactions ADD COLUMN bank_label TEXT`,
+  ]
+
+  for (const migration of migrations) {
+    try {
+      await client.execute(migration)
+    } catch {
+      // Column already exists — ignore
+    }
+  }
 }

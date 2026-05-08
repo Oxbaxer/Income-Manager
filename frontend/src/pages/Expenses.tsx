@@ -12,12 +12,17 @@ import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import type { ExpenseTransaction, ExpenseCategory, PaginatedResponse } from '@/types'
 
+const OPERATION_TYPES = ['Carte bancaire', 'Virement', 'Prelevement', "Retrait d'especes", 'Frais bancaires', 'Autre']
+
 const schema = z.object({
   amount: z.coerce.number().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   categoryId: z.coerce.number().int().positive(),
   description: z.string().min(1),
   notes: z.string().optional(),
+  operationType: z.string().optional(),
+  operationTypeCustom: z.string().optional(),
+  subcategory: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -34,10 +39,12 @@ export function ExpensesPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const LIMIT = 20
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0] },
   })
+
+  const operationType = watch('operationType')
 
   const loadData = useCallback(async () => {
     const [res, cats] = await Promise.all([
@@ -55,16 +62,31 @@ export function ExpensesPage() {
   function openCreate() { reset({ date: new Date().toISOString().split('T')[0] }); setEditId(null); setModalOpen(true) }
 
   function openEdit(tx: ExpenseTransaction) {
-    reset({ amount: tx.amount, date: tx.date, categoryId: tx.categoryId, description: tx.description, notes: tx.notes ?? '' })
+    const isCustom = !!tx.operationType && !OPERATION_TYPES.includes(tx.operationType)
+    reset({
+      amount: tx.amount,
+      date: tx.date,
+      categoryId: tx.categoryId,
+      description: tx.description,
+      notes: tx.notes ?? '',
+      operationType: isCustom ? 'Personnaliser' : (tx.operationType ?? ''),
+      operationTypeCustom: isCustom ? tx.operationType : '',
+      subcategory: tx.subcategory ?? '',
+    })
     setEditId(tx.id)
     setModalOpen(true)
   }
 
   async function onSubmit(data: FormData) {
+    const { operationTypeCustom, ...rest } = data
+    const finalOperationType = data.operationType === 'Personnaliser'
+      ? operationTypeCustom
+      : data.operationType
+    const payload = { ...rest, operationType: finalOperationType || undefined }
     if (editId) {
-      await api.put(`/api/expenses/${editId}`, data)
+      await api.put(`/api/expenses/${editId}`, payload)
     } else {
-      await api.post('/api/expenses', data)
+      await api.post('/api/expenses', payload)
     }
     setModalOpen(false)
     loadData()
@@ -153,6 +175,15 @@ export function ExpensesPage() {
           </Select>
           <Input label={t('expenses.description')} placeholder="Courses du samedi" error={errors.description?.message} {...register('description')} />
           <Textarea label={t('expenses.notes')} placeholder="Notes optionnelles..." {...register('notes')} />
+          <Select label="Type d'opération (optionnel)" {...register('operationType')}>
+            <option value="">—</option>
+            {OPERATION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+            <option value="Personnaliser">Personnaliser...</option>
+          </Select>
+          {operationType === 'Personnaliser' && (
+            <Input label="Type personnalisé" placeholder="Ex: Chèque" {...register('operationTypeCustom')} />
+          )}
+          <Input label="Sous-catégorie (optionnel)" placeholder="Ex: Restauration rapide" {...register('subcategory')} />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" type="button" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button type="submit" loading={isSubmitting}>{t('common.save')}</Button>

@@ -11,6 +11,7 @@ import { recurringRoutes } from './routes/recurring'
 import { goalsRoutes } from './routes/goals'
 import { projectionsRoutes } from './routes/projections'
 import { exportImportRoutes } from './routes/exportImport'
+import { importCsvRoutes } from './routes/importCsv'
 import { startCron } from './services/cron'
 
 const fastify = Fastify({
@@ -40,6 +41,7 @@ async function bootstrap() {
   await fastify.register(goalsRoutes)
   await fastify.register(projectionsRoutes)
   await fastify.register(exportImportRoutes)
+  await fastify.register(importCsvRoutes)
 
   // Cron
   startCron()

@@ -70,6 +70,10 @@ export const incomeTransactions = sqliteTable('income_transactions', {
   description: text('description').notNull(),
   notes: text('notes'),
   isPayslip: integer('is_payslip', { mode: 'boolean' }).notNull().default(false),
+  operationType: text('operation_type'),
+  subcategory: text('subcategory'),
+  bankReference: text('bank_reference'),
+  bankLabel: text('bank_label'),
   ...timestamps,
 })
 
@@ -94,6 +98,10 @@ export const expenseTransactions = sqliteTable('expense_transactions', {
   description: text('description').notNull(),
   notes: text('notes'),
   recurringId: integer('recurring_id').references(() => recurringRules.id),
+  operationType: text('operation_type'),
+  subcategory: text('subcategory'),
+  bankReference: text('bank_reference'),
+  bankLabel: text('bank_label'),
   ...timestamps,
 })
 

@@ -12,6 +12,8 @@ import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import type { IncomeTransaction, IncomeCategory, PaginatedResponse } from '@/types'
 
+const OPERATION_TYPES = ['Carte bancaire', 'Virement', 'Prelevement', "Retrait d'especes", 'Frais bancaires', 'Autre']
+
 const schema = z.object({
   amount: z.coerce.number().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -25,6 +27,9 @@ const schema = z.object({
   bonuses: z.coerce.number().optional(),
   employerName: z.string().optional(),
   periodLabel: z.string().optional(),
+  operationType: z.string().optional(),
+  operationTypeCustom: z.string().optional(),
+  subcategory: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -47,6 +52,7 @@ export function IncomePage() {
   })
 
   const isPayslip = watch('isPayslip')
+  const operationType = watch('operationType')
 
   const loadData = useCallback(async () => {
     const [res, cats] = await Promise.all([
@@ -64,6 +70,7 @@ export function IncomePage() {
   function openCreate() { reset({ date: new Date().toISOString().split('T')[0], isPayslip: false }); setEditId(null); setModalOpen(true) }
 
   async function openEdit(tx: IncomeTransaction) {
+    const isCustom = !!tx.operationType && !OPERATION_TYPES.includes(tx.operationType)
     reset({
       amount: tx.amount,
       date: tx.date,
@@ -71,14 +78,20 @@ export function IncomePage() {
       description: tx.description,
       notes: tx.notes ?? '',
       isPayslip: tx.isPayslip,
+      operationType: isCustom ? 'Personnaliser' : (tx.operationType ?? ''),
+      operationTypeCustom: isCustom ? tx.operationType : '',
+      subcategory: tx.subcategory ?? '',
     })
     setEditId(tx.id)
     setModalOpen(true)
   }
 
   async function onSubmit(data: FormData) {
-    const { grossAmount, netAmount, contributions, bonuses, employerName, periodLabel, isPayslip, ...rest } = data
-    const payload: any = { ...rest, isPayslip }
+    const { grossAmount, netAmount, contributions, bonuses, employerName, periodLabel, isPayslip, operationTypeCustom, subcategory, ...rest } = data
+    const finalOperationType = data.operationType === 'Personnaliser'
+      ? operationTypeCustom
+      : data.operationType
+    const payload: any = { ...rest, isPayslip, subcategory: subcategory || undefined, operationType: finalOperationType || undefined }
     if (isPayslip && grossAmount && netAmount) {
       payload.payslip = { grossAmount, netAmount, contributions: contributions ?? 0, bonuses: bonuses ?? 0, employerName, periodLabel }
     }
@@ -179,6 +192,15 @@ export function IncomePage() {
           </Select>
           <Input label={t('income.description')} placeholder="Salaire mai 2026" error={errors.description?.message} {...register('description')} />
           <Textarea label={t('income.notes')} placeholder="Notes optionnelles..." {...register('notes')} />
+          <Select label="Type d'opération (optionnel)" {...register('operationType')}>
+            <option value="">—</option>
+            {OPERATION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+            <option value="Personnaliser">Personnaliser...</option>
+          </Select>
+          {operationType === 'Personnaliser' && (
+            <Input label="Type personnalisé" placeholder="Ex: Chèque" {...register('operationTypeCustom')} />
+          )}
+          <Input label="Sous-catégorie (optionnel)" placeholder="Ex: Salaire mensuel" {...register('subcategory')} />
 
           {/* Payslip toggle */}
           <label className="flex items-center gap-2 cursor-pointer">
