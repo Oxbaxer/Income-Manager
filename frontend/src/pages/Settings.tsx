@@ -124,9 +124,8 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
       }
       setRows(parsed)
 
-      // Build preview rows (exclude "Transaction exclue")
+      // Build preview rows
       const preview: PreviewRow[] = parsed
-        .filter(r => r.categorie.trim().toLowerCase() !== 'transaction exclue')
         .map(r => {
           const credit = parseAmount(r.credit)
           const debit = parseAmount(r.debit)
@@ -154,7 +153,7 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
     const unknownCats = new Set<string>()
     for (const r of rows) {
       const cat = r.categorie.trim()
-      if (!cat || cat.toLowerCase() === 'transaction exclue') continue
+      if (!cat) continue
       const credit = parseAmount(r.credit)
       const isCredit = credit > 0
       const knownSet = isCredit ? allKnownIncome : allKnownExpense
@@ -198,7 +197,7 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const nonExcludedCount = rows.filter(r => r.categorie.trim().toLowerCase() !== 'transaction exclue').length
+  const nonExcludedCount = rows.filter(r => r.date || r.libelleSimple).length
 
   return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">

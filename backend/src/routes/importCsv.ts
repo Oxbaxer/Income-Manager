@@ -50,8 +50,8 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
 
     for (const row of body.data.rows) {
       try {
-        // Skip excluded transactions
-        if (row.categorie.trim().toLowerCase() === 'transaction exclue') {
+        // Skip only truly empty rows
+        if (!row.date && !row.libelleSimple) {
           skipped++
           continue
         }
