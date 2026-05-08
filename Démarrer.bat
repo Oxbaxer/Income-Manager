@@ -2,7 +2,7 @@
 title Income Manager
 cd /d "%~dp0"
 
-REM ── Charger le PATH utilisateur complet (résout le problème Node.js double-clic)
+REM ── Charger le PATH complet depuis le registre Windows ───────────────────
 for /f "tokens=2*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "USER_PATH=%%b"
 for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH 2^>nul') do set "SYS_PATH=%%b"
 set "PATH=%SYS_PATH%;%USER_PATH%;%PATH%"
@@ -27,6 +27,10 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
+
+REM ── Ajouter le dossier de node.exe au PATH pour que npm soit accessible ──
+for /f "delims=" %%i in ('where node') do set "NODE_DIR=%%~dpi"
+set "PATH=%NODE_DIR%;%PATH%"
 
 for /f %%v in ('node --version') do echo  [OK] Node.js %%v detecte.
 
