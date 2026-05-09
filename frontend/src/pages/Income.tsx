@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import type { IncomeTransaction, IncomeCategory, PaginatedResponse } from '@/types'
+import type { IncomeTransaction, IncomeCategory, PaginatedResponse, Account } from '@/types'
 
 const OPERATION_TYPES = ['Carte bancaire', 'Virement', 'Prelevement', "Retrait d'especes", 'Frais bancaires', 'Autre']
 
@@ -21,6 +21,7 @@ const schema = z.object({
   description: z.string().min(1),
   notes: z.string().optional(),
   isPayslip: z.boolean().default(false),
+  accountId: z.coerce.number().int().positive().optional().nullable(),
   grossAmount: z.coerce.number().optional(),
   netAmount: z.coerce.number().optional(),
   contributions: z.coerce.number().optional(),
@@ -38,6 +39,7 @@ export function IncomePage() {
   const { t } = useTranslation()
   const [transactions, setTransactions] = useState<IncomeTransaction[]>([])
   const [categories, setCategories] = useState<IncomeCategory[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -55,14 +57,16 @@ export function IncomePage() {
   const operationType = watch('operationType')
 
   const loadData = useCallback(async () => {
-    const [res, cats] = await Promise.all([
+    const [res, cats, accs] = await Promise.all([
       api.get<PaginatedResponse<IncomeTransaction>>(`/api/income?page=${page}&limit=${LIMIT}`),
       api.get<IncomeCategory[]>('/api/income/categories'),
+      api.get<Account[]>('/api/accounts').catch(() => [] as Account[]),
     ])
     setTransactions(res.data)
     setTotal(res.total)
     setTotalPages(Math.ceil(res.total / LIMIT))
     setCategories(cats)
+    setAccounts(accs)
   }, [page])
 
   useEffect(() => { loadData() }, [loadData])
@@ -81,17 +85,24 @@ export function IncomePage() {
       operationType: isCustom ? 'Personnaliser' : (tx.operationType ?? ''),
       operationTypeCustom: isCustom ? tx.operationType : '',
       subcategory: tx.subcategory ?? '',
+      accountId: tx.accountId ?? null,
     })
     setEditId(tx.id)
     setModalOpen(true)
   }
 
   async function onSubmit(data: FormData) {
-    const { grossAmount, netAmount, contributions, bonuses, employerName, periodLabel, isPayslip, operationTypeCustom, subcategory, ...rest } = data
+    const { grossAmount, netAmount, contributions, bonuses, employerName, periodLabel, isPayslip, operationTypeCustom, subcategory, accountId, ...rest } = data
     const finalOperationType = data.operationType === 'Personnaliser'
       ? operationTypeCustom
       : data.operationType
-    const payload: any = { ...rest, isPayslip, subcategory: subcategory || undefined, operationType: finalOperationType || undefined }
+    const payload: any = {
+      ...rest,
+      isPayslip,
+      subcategory: subcategory || undefined,
+      operationType: finalOperationType || undefined,
+      accountId: accountId || undefined,
+    }
     if (isPayslip && grossAmount && netAmount) {
       payload.payslip = { grossAmount, netAmount, contributions: contributions ?? 0, bonuses: bonuses ?? 0, employerName, periodLabel }
     }
@@ -201,6 +212,12 @@ export function IncomePage() {
             <Input label="Type personnalisé" placeholder="Ex: Chèque" {...register('operationTypeCustom')} />
           )}
           <Input label="Sous-catégorie (optionnel)" placeholder="Ex: Salaire mensuel" {...register('subcategory')} />
+          {accounts.length > 0 && (
+            <Select label="Compte (optionnel)" {...register('accountId')}>
+              <option value="">— Aucun compte —</option>
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+            </Select>
+          )}
 
           {/* Payslip toggle */}
           <label className="flex items-center gap-2 cursor-pointer">

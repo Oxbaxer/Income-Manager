@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import type { ExpenseTransaction, ExpenseCategory, PaginatedResponse } from '@/types'
+import type { ExpenseTransaction, ExpenseCategory, PaginatedResponse, Account } from '@/types'
 
 const OPERATION_TYPES = ['Carte bancaire', 'Virement', 'Prelevement', "Retrait d'especes", 'Frais bancaires', 'Autre']
 
@@ -20,6 +20,7 @@ const schema = z.object({
   categoryId: z.coerce.number().int().positive(),
   description: z.string().min(1),
   notes: z.string().optional(),
+  accountId: z.coerce.number().int().positive().optional().nullable(),
   operationType: z.string().optional(),
   operationTypeCustom: z.string().optional(),
   subcategory: z.string().optional(),
@@ -31,6 +32,7 @@ export function ExpensesPage() {
   const { t } = useTranslation()
   const [transactions, setTransactions] = useState<ExpenseTransaction[]>([])
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -47,14 +49,16 @@ export function ExpensesPage() {
   const operationType = watch('operationType')
 
   const loadData = useCallback(async () => {
-    const [res, cats] = await Promise.all([
+    const [res, cats, accs] = await Promise.all([
       api.get<PaginatedResponse<ExpenseTransaction>>(`/api/expenses?page=${page}&limit=${LIMIT}`),
       api.get<ExpenseCategory[]>('/api/expenses/categories'),
+      api.get<Account[]>('/api/accounts').catch(() => [] as Account[]),
     ])
     setTransactions(res.data)
     setTotal(res.total)
     setTotalPages(Math.ceil(res.total / LIMIT))
     setCategories(cats)
+    setAccounts(accs)
   }, [page])
 
   useEffect(() => { loadData() }, [loadData])
@@ -72,17 +76,18 @@ export function ExpensesPage() {
       operationType: isCustom ? 'Personnaliser' : (tx.operationType ?? ''),
       operationTypeCustom: isCustom ? tx.operationType : '',
       subcategory: tx.subcategory ?? '',
+      accountId: tx.accountId ?? null,
     })
     setEditId(tx.id)
     setModalOpen(true)
   }
 
   async function onSubmit(data: FormData) {
-    const { operationTypeCustom, ...rest } = data
+    const { operationTypeCustom, accountId, ...rest } = data
     const finalOperationType = data.operationType === 'Personnaliser'
       ? operationTypeCustom
       : data.operationType
-    const payload = { ...rest, operationType: finalOperationType || undefined }
+    const payload = { ...rest, operationType: finalOperationType || undefined, accountId: accountId || undefined }
     if (editId) {
       await api.put(`/api/expenses/${editId}`, payload)
     } else {
@@ -184,6 +189,12 @@ export function ExpensesPage() {
             <Input label="Type personnalisé" placeholder="Ex: Chèque" {...register('operationTypeCustom')} />
           )}
           <Input label="Sous-catégorie (optionnel)" placeholder="Ex: Restauration rapide" {...register('subcategory')} />
+          {accounts.length > 0 && (
+            <Select label="Compte (optionnel)" {...register('accountId')}>
+              <option value="">— Aucun compte —</option>
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+            </Select>
+          )}
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" type="button" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button type="submit" loading={isSubmitting}>{t('common.save')}</Button>

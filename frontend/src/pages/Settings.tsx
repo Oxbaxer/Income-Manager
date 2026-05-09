@@ -6,7 +6,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api/client'
-import type { User, ExpenseCategory, IncomeCategory } from '@/types'
+import type { User, ExpenseCategory, IncomeCategory, Account } from '@/types'
 
 // ────────────────────────────────────────────────────────────────────────────────
 // CSV types
@@ -92,6 +92,8 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('')
   const [categoryMapping, setCategoryMapping] = useState<Record<string, string>>({}) // csvCat -> 'CREATE' or 'existing name'
   const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
   const [importing, setImporting] = useState(false)
@@ -103,9 +105,11 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
     Promise.all([
       api.get<ExpenseCategory[]>('/api/expenses/categories'),
       api.get<IncomeCategory[]>('/api/income/categories'),
-    ]).then(([ec, ic]) => {
+      api.get<Account[]>('/api/accounts').catch(() => [] as Account[]),
+    ]).then(([ec, ic, accs]) => {
       setExpenseCategories(ec)
       setIncomeCategories(ic)
+      setAccounts(accs)
     }).catch(() => {})
   }, [])
 
@@ -196,7 +200,10 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
         return r
       })
 
-      const res = await api.post<{ imported: number; skipped: number; errors: string[] }>('/api/import/csv', { rows: mappedRows })
+      const res = await api.post<{ imported: number; skipped: number; errors: string[] }>('/api/import/csv', {
+        rows: mappedRows,
+        accountId: selectedAccountId ? parseInt(selectedAccountId) : undefined,
+      })
       setResult(res)
     } catch (e: any) {
       setResult({ imported: 0, skipped: 0, errors: [e?.message || 'Erreur inconnue'] })
@@ -230,6 +237,21 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
             <p className="text-sm text-white/60">
               Sélectionnez un fichier CSV exporté depuis votre banque. Le fichier doit être séparé par <code className="bg-surface-2 px-1 rounded text-primary">;</code> et encodé en latin-1.
             </p>
+            {accounts.length > 0 && (
+              <div>
+                <label className="block text-xs text-white/50 mb-1">Importer dans le compte (optionnel)</label>
+                <select
+                  value={selectedAccountId}
+                  onChange={e => setSelectedAccountId(e.target.value)}
+                  className="w-full bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                >
+                  <option value="">— Aucun compte —</option>
+                  {accounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div
               className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary/40 transition-colors"
               onClick={() => fileInputRef.current?.click()}

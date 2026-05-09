@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { key: 'dashboard', path: '/', icon: GridIcon },
   { key: 'income', path: '/income', icon: ArrowUpIcon },
   { key: 'expenses', path: '/expenses', icon: ArrowDownIcon },
+  { key: 'comptes', path: '/comptes', icon: BankIcon },
+  { key: 'analyse', path: '/analyse', icon: PieChartIcon },
   { key: 'recurring', path: '/recurring', icon: RepeatIcon },
   { key: 'goals', path: '/goals', icon: TargetIcon },
   { key: 'projections', path: '/projections', icon: ChartIcon },
@@ -132,6 +134,23 @@ function LogoutIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+    </svg>
+  )
+}
+
+function BankIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9" />
+    </svg>
+  )
+}
+
+function PieChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
     </svg>
   )
 }

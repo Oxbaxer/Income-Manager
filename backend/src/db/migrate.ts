@@ -124,6 +124,29 @@ export async function initSchema() {
       created_at TEXT DEFAULT (datetime('now')) NOT NULL,
       updated_at TEXT DEFAULT (datetime('now')) NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      household_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'checking',
+      starting_balance REAL NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#6366f1',
+      icon TEXT NOT NULL DEFAULT '🏦',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')) NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS transfers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      household_id INTEGER NOT NULL,
+      from_account_id INTEGER NOT NULL,
+      to_account_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      date TEXT NOT NULL,
+      description TEXT,
+      expense_transaction_id INTEGER,
+      income_transaction_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now')) NOT NULL
+    )`,
   ]
 
   for (const sql of statements) {
@@ -140,6 +163,8 @@ export async function initSchema() {
     `ALTER TABLE expense_transactions ADD COLUMN subcategory TEXT`,
     `ALTER TABLE expense_transactions ADD COLUMN bank_reference TEXT`,
     `ALTER TABLE expense_transactions ADD COLUMN bank_label TEXT`,
+    `ALTER TABLE income_transactions ADD COLUMN account_id INTEGER`,
+    `ALTER TABLE expense_transactions ADD COLUMN account_id INTEGER`,
   ]
 
   for (const migration of migrations) {

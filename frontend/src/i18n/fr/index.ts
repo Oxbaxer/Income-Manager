@@ -3,6 +3,8 @@ export default {
     dashboard: 'Tableau de bord',
     income: 'Revenus',
     expenses: 'Dépenses',
+    comptes: 'Comptes',
+    analyse: 'Analyse',
     recurring: 'Récurrents',
     goals: 'Objectifs',
     projections: 'Prévisions',
