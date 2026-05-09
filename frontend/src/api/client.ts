@@ -40,8 +40,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { access } = getTokens()
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
+  }
+  // Only set Content-Type when there's actually a body (Fastify rejects
+  // Content-Type: application/json with empty body — FST_ERR_CTP_EMPTY_JSON_BODY)
+  if (options.body !== undefined && options.body !== null) {
+    headers['Content-Type'] = 'application/json'
   }
   if (access) headers['Authorization'] = `Bearer ${access}`
 
