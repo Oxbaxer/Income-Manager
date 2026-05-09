@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { PageShell } from '@/components/layout/PageShell'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api/client'
 import type { User, ExpenseCategory, IncomeCategory, Account } from '@/types'
@@ -33,6 +35,11 @@ interface PreviewRow {
   isCredit: boolean
 }
 
+// Normalize a string: lowercase + strip accents (so "Catégorie" matches "categorie")
+function norm(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
 // Parse latin-1 encoded CSV text
 function parseCsvText(text: string): CsvRow[] {
   const lines = text.split(/\r?\n/).filter(l => l.trim() !== '')
@@ -41,17 +48,18 @@ function parseCsvText(text: string): CsvRow[] {
   // Detect header line
   const headerLine = lines[0]
   const cols = headerLine.split(';').map(c => c.replace(/"/g, '').trim())
+  const colsNorm = cols.map(norm)
 
-  const idxDate = cols.findIndex(c => c.toLowerCase().includes('date'))
-  const idxLibSimple = cols.findIndex(c => c.toLowerCase().includes('libelle simplifie') || c.toLowerCase().includes('libellé simplifié') || c.toLowerCase().includes('libelle simplifi'))
-  const idxLibOp = cols.findIndex(c => c.toLowerCase().includes('libelle operation') || c.toLowerCase().includes('libellé opération') || (c.toLowerCase().includes('libelle') && !c.toLowerCase().includes('simplifi')))
-  const idxRef = cols.findIndex(c => c.toLowerCase().includes('reference'))
-  const idxInfo = cols.findIndex(c => c.toLowerCase().includes('information'))
-  const idxType = cols.findIndex(c => c.toLowerCase().includes('type'))
-  const idxCat = cols.findIndex(c => c.toLowerCase().includes('categorie') && !c.toLowerCase().includes('sous'))
-  const idxSousCat = cols.findIndex(c => c.toLowerCase().includes('sous'))
-  const idxDebit = cols.findIndex(c => c.toLowerCase().includes('debit') || c.toLowerCase().includes('débit'))
-  const idxCredit = cols.findIndex(c => c.toLowerCase().includes('credit') || c.toLowerCase().includes('crédit'))
+  const idxDate = colsNorm.findIndex(c => c.includes('date'))
+  const idxLibSimple = colsNorm.findIndex(c => c.includes('libelle simplifie') || c.includes('libelle simplifi'))
+  const idxLibOp = colsNorm.findIndex(c => c.includes('libelle operation') || (c.includes('libelle') && !c.includes('simplifi')))
+  const idxRef = colsNorm.findIndex(c => c.includes('reference'))
+  const idxInfo = colsNorm.findIndex(c => c.includes('information'))
+  const idxType = colsNorm.findIndex(c => c.includes('type'))
+  const idxCat = colsNorm.findIndex(c => c.includes('categorie') && !c.includes('sous'))
+  const idxSousCat = colsNorm.findIndex(c => c.includes('sous'))
+  const idxDebit = colsNorm.findIndex(c => c.includes('debit'))
+  const idxCredit = colsNorm.findIndex(c => c.includes('credit'))
 
   const rows: CsvRow[] = []
   for (let i = 1; i < lines.length; i++) {
@@ -123,12 +131,15 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
       const buf = ev.target?.result as ArrayBuffer
       const bytes = new Uint8Array(buf)
       // Auto-detect encoding: UTF-8 BOM (EF BB BF) → UTF-8, otherwise ISO-8859-1
+      // Note: TextDecoder('utf-8') strips the BOM automatically, so do NOT slice.
       let text: string
       if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
-        text = new TextDecoder('utf-8').decode(buf).slice(1) // strip BOM char
+        text = new TextDecoder('utf-8').decode(buf)
       } else {
         text = new TextDecoder('iso-8859-1').decode(buf)
       }
+      // Defensive: strip any remaining leading BOM in case decoder didn't.
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
       const parsed = parseCsvText(text)
       if (parsed.length === 0) {
         setFileError('Aucune ligne trouvée dans le fichier CSV.')
@@ -1006,12 +1017,85 @@ export function SettingsPage() {
   const [exporting, setExporting] = useState(false)
   const [exportingCsv, setExportingCsv] = useState(false)
   const [showImportCsv, setShowImportCsv] = useState(false)
+  const [exportAccounts, setExportAccounts] = useState<Account[]>([])
+  const [exportAccountId, setExportAccountId] = useState<string>('')
+  const [resetAccountId, setResetAccountId] = useState<number | null>(null)
+  const [resetting, setResetting] = useState(false)
+  const [resetResult, setResetResult] = useState<string>('')
+  const [wipeAllOpen, setWipeAllOpen] = useState(false)
+  const [wipeAllConfirm, setWipeAllConfirm] = useState('')
+  const [dedupeRunning, setDedupeRunning] = useState(false)
+  const [dedupeResult, setDedupeResult] = useState('')
+
+  useEffect(() => {
+    api.get<Account[]>('/api/accounts').then(setExportAccounts).catch(() => {})
+  }, [])
+
+  const handleResetAccount = async () => {
+    if (!resetAccountId) return
+    setResetting(true)
+    setResetResult('')
+    try {
+      const res = await api.post<{ deletedIncome: number; deletedExpenses: number }>(`/api/accounts/${resetAccountId}/reset`, {})
+      setResetResult(`✅ ${res.deletedIncome} revenu(s) et ${res.deletedExpenses} dépense(s) supprimés.`)
+      // Refresh accounts list (balances changed)
+      api.get<Account[]>('/api/accounts').then(setExportAccounts).catch(() => {})
+    } catch (e: any) {
+      setResetResult(`❌ ${e?.error || e?.message || 'Erreur lors de la réinitialisation'}`)
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  const closeResetModal = () => {
+    setResetAccountId(null)
+    setResetResult('')
+  }
+
+  const handleWipeAll = async () => {
+    setResetting(true)
+    setResetResult('')
+    try {
+      const res = await api.post<{ deletedIncome: number; deletedExpenses: number }>('/api/accounts/reset-all-transactions', {})
+      setResetResult(`✅ ${res.deletedIncome} revenu(s) et ${res.deletedExpenses} dépense(s) supprimés (toutes transactions confondues, y compris celles sans compte).`)
+      setWipeAllConfirm('')
+    } catch (e: any) {
+      setResetResult(`❌ ${e?.error || e?.message || 'Erreur'}`)
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  const closeWipeAll = () => {
+    setWipeAllOpen(false)
+    setWipeAllConfirm('')
+    setResetResult('')
+  }
+
+  const handleDedupe = async () => {
+    setDedupeRunning(true)
+    setDedupeResult('')
+    try {
+      const res = await api.post<{ deletedExpenses: number; deletedIncome: number }>('/api/accounts/deduplicate', {})
+      const total = res.deletedExpenses + res.deletedIncome
+      if (total === 0) {
+        setDedupeResult('✅ Aucun doublon détecté.')
+      } else {
+        setDedupeResult(`✅ ${res.deletedExpenses} dépense(s) et ${res.deletedIncome} revenu(s) en doublon supprimés.`)
+      }
+    } catch (e: any) {
+      setDedupeResult(`❌ ${e?.error || e?.message || 'Erreur'}`)
+    } finally {
+      setDedupeRunning(false)
+    }
+  }
 
   const handleExport = async () => {
     setExporting(true)
     try {
       const tokens = api.getTokens()
-      const res = await fetch('/api/export', {
+      const accountParam = exportAccountId ? `?accountId=${exportAccountId}` : ''
+      const res = await fetch(`/api/export${accountParam}`, {
         headers: { Authorization: `Bearer ${tokens?.access}` },
       })
       const blob = await res.blob()
@@ -1032,7 +1116,8 @@ export function SettingsPage() {
     setExportingCsv(true)
     try {
       const tokens = api.getTokens()
-      const res = await fetch('/api/export/csv', {
+      const accountParam = exportAccountId ? `?accountId=${exportAccountId}` : ''
+      const res = await fetch(`/api/export/csv${accountParam}`, {
         headers: { Authorization: `Bearer ${tokens?.access}` },
       })
       const blob = await res.blob()
@@ -1099,6 +1184,21 @@ export function SettingsPage() {
         <Card>
           <CardTitle className="mb-4">Export / Import</CardTitle>
           <div className="space-y-4">
+            {exportAccounts.length > 0 && (
+              <div className="flex items-center gap-3 p-3 bg-surface-2 rounded-lg border border-border">
+                <span className="text-xs text-white/50 flex-shrink-0">Filtrer l'export par compte :</span>
+                <select
+                  value={exportAccountId}
+                  onChange={e => setExportAccountId(e.target.value)}
+                  className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                >
+                  <option value="">Tous les comptes</option>
+                  {exportAccounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-4 p-4 bg-surface-2 rounded-lg border border-border">
               <div>
                 <p className="text-sm font-medium text-white mb-1">Exporter les données (JSON)</p>
@@ -1142,6 +1242,67 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        {/* Zone de danger */}
+        <Card className="border-accent-red/20">
+          <CardTitle className="mb-2 text-accent-red">⚠ Zone de danger</CardTitle>
+
+          {/* Per-account reset */}
+          {exportAccounts.length > 0 && (
+            <>
+              <p className="text-xs text-white/40 mb-3">
+                Supprime <strong>toutes les transactions</strong> (revenus + dépenses) liées à un compte spécifique.
+                Le compte et son solde de départ sont conservés.
+              </p>
+              <div className="space-y-2 mb-5">
+                {exportAccounts.map(a => (
+                  <div key={a.id} className="flex items-center justify-between gap-3 p-3 bg-surface-2 rounded-lg border border-border">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg">{a.icon}</span>
+                      <span className="text-sm text-white font-medium truncate">{a.name}</span>
+                    </div>
+                    <button
+                      onClick={() => setResetAccountId(a.id)}
+                      className="flex-shrink-0 px-3 py-1.5 bg-accent-red/10 text-accent-red border border-accent-red/30 rounded-lg text-xs font-medium hover:bg-accent-red/20 transition-all"
+                    >
+                      🗑 Réinitialiser
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Deduplicate */}
+          <div className="border-t border-border/50 pt-4 mb-4">
+            <p className="text-xs text-white/40 mb-3">
+              <strong className="text-white/70">Supprimer les doublons</strong> — détecte les transactions identiques (même date, libellé, montant et catégorie) et garde uniquement la plus ancienne. Utile après plusieurs imports successifs du même CSV.
+            </p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleDedupe}
+                disabled={dedupeRunning}
+                className="px-4 py-2 bg-yellow-400/10 text-yellow-400 border border-yellow-400/40 rounded-lg text-sm font-medium hover:bg-yellow-400/20 transition-all disabled:opacity-50"
+              >
+                {dedupeRunning ? '⏳ Analyse en cours...' : '🧹 Supprimer les doublons'}
+              </button>
+              {dedupeResult && <span className="text-xs text-white/70">{dedupeResult}</span>}
+            </div>
+          </div>
+
+          {/* Global wipe */}
+          <div className="border-t border-border/50 pt-4">
+            <p className="text-xs text-white/40 mb-3">
+              <strong className="text-white/70">Tout réinitialiser</strong> — supprime <strong>absolument toutes les transactions</strong> (revenus + dépenses), y compris celles non liées à un compte (importées avant que la notion de compte n'existe). Les comptes et catégories restent.
+            </p>
+            <button
+              onClick={() => setWipeAllOpen(true)}
+              className="px-4 py-2 bg-accent-red/15 text-accent-red border border-accent-red/40 rounded-lg text-sm font-medium hover:bg-accent-red/25 transition-all"
+            >
+              🔥 Tout réinitialiser (toutes transactions)
+            </button>
+          </div>
+        </Card>
+
         {/* Account info */}
         <Card>
           <CardTitle className="mb-4">Compte</CardTitle>
@@ -1165,6 +1326,97 @@ export function SettingsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Global wipe confirmation modal */}
+      <Modal
+        open={wipeAllOpen}
+        onClose={closeWipeAll}
+        title="⚠ Tout réinitialiser"
+      >
+        <div className="space-y-4">
+          {!resetResult ? (
+            <>
+              <p className="text-white/80">
+                Vous êtes sur le point de supprimer <strong className="text-accent-red">absolument toutes les transactions</strong>
+                {' '}(revenus + dépenses), y compris celles sans compte associé.
+              </p>
+              <p className="text-sm text-white/50">
+                Les comptes, catégories et objectifs sont conservés. Cette action est <strong>irréversible</strong>.
+              </p>
+              <div>
+                <label className="block text-xs text-white/50 mb-1">
+                  Pour confirmer, tapez <code className="bg-surface-2 px-1.5 py-0.5 rounded text-accent-red">SUPPRIMER</code> ci-dessous :
+                </label>
+                <input
+                  type="text"
+                  value={wipeAllConfirm}
+                  onChange={e => setWipeAllConfirm(e.target.value)}
+                  placeholder="SUPPRIMER"
+                  className="w-full bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-red"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="ghost" onClick={closeWipeAll} disabled={resetting}>Annuler</Button>
+                <Button
+                  variant="danger"
+                  onClick={handleWipeAll}
+                  loading={resetting}
+                  disabled={wipeAllConfirm !== 'SUPPRIMER'}
+                >
+                  Tout supprimer
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-white/80">{resetResult}</p>
+              <div className="flex justify-end pt-2">
+                <Button onClick={closeWipeAll}>Fermer</Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Reset account confirmation modal */}
+      <Modal
+        open={resetAccountId !== null}
+        onClose={closeResetModal}
+        title="Réinitialiser le compte"
+      >
+        {(() => {
+          const acc = exportAccounts.find(a => a.id === resetAccountId)
+          if (!acc) return null
+          return (
+            <div className="space-y-4">
+              {!resetResult ? (
+                <>
+                  <p className="text-white/80">
+                    Vous êtes sur le point de supprimer <strong className="text-accent-red">toutes les transactions</strong>
+                    {' '}(revenus + dépenses) liées au compte <strong className="text-white">{acc.icon} {acc.name}</strong>.
+                  </p>
+                  <p className="text-sm text-white/50">
+                    Le compte et son solde de départ resteront. Cette action est <strong>irréversible</strong>.
+                  </p>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="ghost" onClick={closeResetModal} disabled={resetting}>Annuler</Button>
+                    <Button variant="danger" onClick={handleResetAccount} loading={resetting}>
+                      Tout supprimer
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-white/80">{resetResult}</p>
+                  <div className="flex justify-end pt-2">
+                    <Button onClick={closeResetModal}>Fermer</Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })()}
+      </Modal>
     </PageShell>
   )
 }

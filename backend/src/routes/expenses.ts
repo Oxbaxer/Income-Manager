@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/client'
 import { expenseTransactions, expenseCategories } from '../db/schema'
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql, isNull } from 'drizzle-orm'
 import { authenticate } from '../middleware/authenticate'
 
 const transactionSchema = z.object({
@@ -33,7 +33,11 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     if (categoryId) conditions.push(eq(expenseTransactions.categoryId, parseInt(categoryId)))
     if (from) conditions.push(gte(expenseTransactions.date, from))
     if (to) conditions.push(lte(expenseTransactions.date, to))
-    if (accountId) conditions.push(eq(expenseTransactions.accountId, parseInt(accountId)))
+    if (accountId === 'null' || accountId === 'none') {
+      conditions.push(isNull(expenseTransactions.accountId))
+    } else if (accountId) {
+      conditions.push(eq(expenseTransactions.accountId, parseInt(accountId)))
+    }
 
     const [rows, countRow] = await Promise.all([
       db.select({
@@ -116,6 +120,20 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: 'Not found' })
     await db.delete(expenseTransactions).where(eq(expenseTransactions.id, id))
     return reply.send({ ok: true })
+  })
+
+  // Bulk delete
+  fastify.post('/api/expenses/bulk-delete', { preHandler: [authenticate] }, async (req, reply) => {
+    const body = z.object({ ids: z.array(z.number().int().positive()).min(1) }).safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+    const householdId = (req.user as any).householdId
+    const result = await db.delete(expenseTransactions)
+      .where(and(
+        eq(expenseTransactions.householdId, householdId),
+        sql`${expenseTransactions.id} IN (${sql.join(body.data.ids.map(id => sql`${id}`), sql`, `)})`,
+      ))
+      .returning({ id: expenseTransactions.id })
+    return reply.send({ deleted: result.length })
   })
 
   // Categories

@@ -5,7 +5,7 @@ import {
   incomeTransactions, payslipDetails, expenseTransactions,
   savingsGoals, savingsContributions, projectionScenarios,
 } from '../db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { authenticate } from '../middleware/authenticate'
 
 function formatDateToDDMMYYYY(isoDate: string): string {
@@ -27,6 +27,14 @@ export async function exportImportRoutes(fastify: FastifyInstance) {
   // ── Export full household data as JSON ──────────────────────────────────────
   fastify.get('/api/export', { preHandler: [authenticate] }, async (req, reply) => {
     const householdId = (req.user as any).householdId
+    const { accountId } = req.query as any
+
+    const incomeConditions: any[] = [eq(incomeTransactions.householdId, householdId)]
+    const expenseConditions: any[] = [eq(expenseTransactions.householdId, householdId)]
+    if (accountId) {
+      incomeConditions.push(eq(incomeTransactions.accountId, parseInt(accountId)))
+      expenseConditions.push(eq(expenseTransactions.accountId, parseInt(accountId)))
+    }
 
     const [
       iCats, eCats, recurring, income, expenses,
@@ -35,8 +43,8 @@ export async function exportImportRoutes(fastify: FastifyInstance) {
       db.select().from(incomeCategories).where(eq(incomeCategories.householdId, householdId)),
       db.select().from(expenseCategories).where(eq(expenseCategories.householdId, householdId)),
       db.select().from(recurringRules).where(eq(recurringRules.householdId, householdId)),
-      db.select().from(incomeTransactions).where(eq(incomeTransactions.householdId, householdId)),
-      db.select().from(expenseTransactions).where(eq(expenseTransactions.householdId, householdId)),
+      db.select().from(incomeTransactions).where(and(...incomeConditions)),
+      db.select().from(expenseTransactions).where(and(...expenseConditions)),
       db.select().from(savingsGoals).where(eq(savingsGoals.householdId, householdId)),
       db.select({
         id: savingsContributions.id,
@@ -85,10 +93,18 @@ export async function exportImportRoutes(fastify: FastifyInstance) {
   // ── Export transactions as CSV (re-importable format) ───────────────────────
   fastify.get('/api/export/csv', { preHandler: [authenticate] }, async (req, reply) => {
     const householdId = (req.user as any).householdId
+    const { accountId } = req.query as any
+
+    const incomeConditions: any[] = [eq(incomeTransactions.householdId, householdId)]
+    const expenseConditions: any[] = [eq(expenseTransactions.householdId, householdId)]
+    if (accountId) {
+      incomeConditions.push(eq(incomeTransactions.accountId, parseInt(accountId)))
+      expenseConditions.push(eq(expenseTransactions.accountId, parseInt(accountId)))
+    }
 
     const [income, expenses, iCats, eCats] = await Promise.all([
-      db.select().from(incomeTransactions).where(eq(incomeTransactions.householdId, householdId)),
-      db.select().from(expenseTransactions).where(eq(expenseTransactions.householdId, householdId)),
+      db.select().from(incomeTransactions).where(and(...incomeConditions)),
+      db.select().from(expenseTransactions).where(and(...expenseConditions)),
       db.select().from(incomeCategories).where(eq(incomeCategories.householdId, householdId)),
       db.select().from(expenseCategories).where(eq(expenseCategories.householdId, householdId)),
     ])

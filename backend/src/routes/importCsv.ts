@@ -78,13 +78,26 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
             cat = created
           }
 
+          // Skip if an identical transaction already exists (date + description + amount + category)
+          const description = row.libelleSimple.trim() || row.libelleOperation.trim() || 'Import CSV'
+          const existing = await db.query.incomeTransactions.findFirst({
+            where: (t, { eq, and }) => and(
+              eq(t.householdId, householdId),
+              eq(t.date, date),
+              eq(t.description, description),
+              eq(t.amount, creditAmount),
+              eq(t.categoryId, cat.id),
+            ),
+          })
+          if (existing) { skipped++; continue }
+
           await db.insert(incomeTransactions).values({
             householdId,
             userId,
             amount: creditAmount,
             date,
             categoryId: cat.id,
-            description: row.libelleSimple.trim() || row.libelleOperation.trim() || 'Import CSV',
+            description,
             notes: null,
             isPayslip: false,
             operationType: row.typeOperation.trim() || null,
@@ -109,13 +122,26 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
             cat = created
           }
 
+          // Skip if an identical transaction already exists (date + description + amount + category)
+          const description = row.libelleSimple.trim() || row.libelleOperation.trim() || 'Import CSV'
+          const existing = await db.query.expenseTransactions.findFirst({
+            where: (t, { eq, and }) => and(
+              eq(t.householdId, householdId),
+              eq(t.date, date),
+              eq(t.description, description),
+              eq(t.amount, debitAmount),
+              eq(t.categoryId, cat.id),
+            ),
+          })
+          if (existing) { skipped++; continue }
+
           await db.insert(expenseTransactions).values({
             householdId,
             userId,
             amount: debitAmount,
             date,
             categoryId: cat.id,
-            description: row.libelleSimple.trim() || row.libelleOperation.trim() || 'Import CSV',
+            description,
             notes: null,
             operationType: row.typeOperation.trim() || null,
             subcategory: row.sousCategorie.trim() || null,
