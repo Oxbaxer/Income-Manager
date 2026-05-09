@@ -12,6 +12,7 @@ const transactionSchema = z.object({
   description: z.string().min(1).max(255),
   notes: z.string().max(1000).optional(),
   isPayslip: z.boolean().default(false),
+  accountId: z.number().int().positive().optional().nullable(),
   payslip: z.object({
     grossAmount: z.number().positive(),
     netAmount: z.number().positive(),
@@ -49,6 +50,7 @@ export async function incomeRoutes(fastify: FastifyInstance) {
         description: incomeTransactions.description,
         notes: incomeTransactions.notes,
         isPayslip: incomeTransactions.isPayslip,
+        accountId: incomeTransactions.accountId,
         createdAt: incomeTransactions.createdAt,
       })
         .from(incomeTransactions)

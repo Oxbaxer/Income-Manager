@@ -60,6 +60,18 @@ export const recurringRules = sqliteTable('recurring_rules', {
   ...timestamps,
 })
 
+export const accounts = sqliteTable('accounts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  householdId: integer('household_id').notNull(),
+  name: text('name').notNull(),
+  type: text('type').notNull().default('checking'),
+  startingBalance: real('starting_balance').notNull().default(0),
+  color: text('color').notNull().default('#6366f1'),
+  icon: text('icon').notNull().default('🏦'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+})
+
 export const incomeTransactions = sqliteTable('income_transactions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   householdId: integer('household_id').notNull().references(() => households.id),
@@ -74,6 +86,7 @@ export const incomeTransactions = sqliteTable('income_transactions', {
   subcategory: text('subcategory'),
   bankReference: text('bank_reference'),
   bankLabel: text('bank_label'),
+  accountId: integer('account_id'),
   ...timestamps,
 })
 
@@ -102,7 +115,21 @@ export const expenseTransactions = sqliteTable('expense_transactions', {
   subcategory: text('subcategory'),
   bankReference: text('bank_reference'),
   bankLabel: text('bank_label'),
+  accountId: integer('account_id'),
   ...timestamps,
+})
+
+export const transfers = sqliteTable('transfers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  householdId: integer('household_id').notNull(),
+  fromAccountId: integer('from_account_id').notNull(),
+  toAccountId: integer('to_account_id').notNull(),
+  amount: real('amount').notNull(),
+  date: text('date').notNull(),
+  description: text('description'),
+  expenseTransactionId: integer('expense_transaction_id'),
+  incomeTransactionId: integer('income_transaction_id'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })
 
 export const savingsGoals = sqliteTable('savings_goals', {

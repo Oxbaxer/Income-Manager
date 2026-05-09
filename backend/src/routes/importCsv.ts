@@ -19,6 +19,7 @@ const csvRowSchema = z.object({
 
 const importBodySchema = z.object({
   rows: z.array(csvRowSchema),
+  accountId: z.number().int().positive().optional().nullable(),
 })
 
 function parseAmount(raw: string): number {
@@ -43,6 +44,7 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
 
     const householdId = (req.user as any).householdId
     const userId = (req.user as any).sub
+    const accountId = body.data.accountId ?? null
 
     let imported = 0
     let skipped = 0
@@ -89,6 +91,7 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
             subcategory: row.sousCategorie.trim() || null,
             bankReference: row.reference.trim() || null,
             bankLabel: row.libelleOperation.trim() || null,
+            accountId: accountId ?? undefined,
           })
           imported++
         } else if (debitAmount > 0) {
@@ -118,6 +121,7 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
             subcategory: row.sousCategorie.trim() || null,
             bankReference: row.reference.trim() || null,
             bankLabel: row.libelleOperation.trim() || null,
+            accountId: accountId ?? undefined,
           })
           imported++
         } else {

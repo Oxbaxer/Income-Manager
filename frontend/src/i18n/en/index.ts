@@ -3,6 +3,8 @@ export default {
     dashboard: 'Dashboard',
     income: 'Income',
     expenses: 'Expenses',
+    comptes: 'Accounts',
+    analyse: 'Analysis',
     recurring: 'Recurring',
     goals: 'Goals',
     projections: 'Projections',

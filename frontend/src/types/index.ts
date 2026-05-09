@@ -25,6 +25,28 @@ export interface ExpenseCategory {
   sortOrder: number
 }
 
+export interface Account {
+  id: number
+  name: string
+  type: 'checking' | 'savings' | 'investment' | 'cash'
+  startingBalance: number
+  balance: number
+  color: string
+  icon: string
+  sortOrder: number
+}
+
+export interface Transfer {
+  id: number
+  fromAccountId: number
+  fromAccountName: string
+  toAccountId: number
+  toAccountName: string
+  amount: number
+  date: string
+  description: string | null
+}
+
 export interface IncomeTransaction {
   id: number
   amount: number
@@ -38,6 +60,8 @@ export interface IncomeTransaction {
   subcategory?: string
   bankReference?: string
   bankLabel?: string
+  accountId?: number
+  accountName?: string
   createdAt: string
 }
 
@@ -65,6 +89,8 @@ export interface ExpenseTransaction {
   subcategory?: string
   bankReference?: string
   bankLabel?: string
+  accountId?: number
+  accountName?: string
   createdAt: string
 }
 

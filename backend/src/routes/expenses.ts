@@ -11,6 +11,7 @@ const transactionSchema = z.object({
   categoryId: z.number().int().positive(),
   description: z.string().min(1).max(255),
   notes: z.string().max(1000).optional(),
+  accountId: z.number().int().positive().optional().nullable(),
 })
 
 const categorySchema = z.object({
@@ -45,6 +46,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         description: expenseTransactions.description,
         notes: expenseTransactions.notes,
         recurringId: expenseTransactions.recurringId,
+        accountId: expenseTransactions.accountId,
         createdAt: expenseTransactions.createdAt,
       })
         .from(expenseTransactions)

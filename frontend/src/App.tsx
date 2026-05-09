@@ -10,6 +10,8 @@ import { GoalsPage } from '@/pages/Goals'
 import { RecurringPage } from '@/pages/Recurring'
 import { ProjectionsPage } from '@/pages/Projections'
 import { SettingsPage } from '@/pages/Settings'
+import { ComptesPage } from '@/pages/Comptes'
+import { AnalysePage } from '@/pages/Analyse'
 
 function AppLayout() {
   return (
@@ -52,6 +54,8 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/income" element={<IncomePage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
+            <Route path="/comptes" element={<ComptesPage />} />
+            <Route path="/analyse" element={<AnalysePage />} />
             <Route path="/recurring" element={<RecurringPage />} />
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/projections" element={<ProjectionsPage />} />

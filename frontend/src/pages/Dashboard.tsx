@@ -9,7 +9,7 @@ import { IncomeExpensesChart } from '@/components/charts/IncomeExpensesChart'
 import { SavingsEvolutionChart } from '@/components/charts/SavingsEvolutionChart'
 import { ExpensesByCategoryChart } from '@/components/charts/ExpensesByCategoryChart'
 import { IncomeCumulativeChart } from '@/components/charts/IncomeCumulativeChart'
-import type { AnalyticsSummary, RecentTransaction, Period } from '@/types'
+import type { AnalyticsSummary, RecentTransaction, Period, Account } from '@/types'
 
 const PERIODS: Period[] = ['1m', '3m', '6m', '1y', '2y', '5y', 'all']
 
@@ -57,6 +57,7 @@ export function DashboardPage() {
   const [period, setPeriod] = useState<Period>('6m')
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
   const [recent, setRecent] = useState<RecentTransaction[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
   const [activeChart, setActiveChart] = useState<ChartTab>('compare')
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export function DashboardPage() {
   useEffect(() => {
     api.get<RecentTransaction[]>('/api/analytics/recent?limit=8')
       .then(setRecent).catch(() => {})
+    api.get<Account[]>('/api/accounts').then(setAccounts).catch(() => {})
   }, [])
 
   return (
@@ -89,10 +91,30 @@ export function DashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label={t('dashboard.totalIncome')} value={summary?.totalIncome ?? 0} color="green" />
         <KpiCard label={t('dashboard.totalExpenses')} value={summary?.totalExpenses ?? 0} color="red" />
         <KpiCard label={t('dashboard.savings')} value={summary?.savings ?? 0} color="blue" />
+        {accounts.length > 0 && (
+          <div className="glass p-5 border border-primary/20 bg-primary/5 animate-fade-in">
+            <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">Patrimoine</p>
+            <p className={`text-2xl font-bold font-mono tabular-nums ${accounts.reduce((s, a) => s + a.balance, 0) >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>
+              {(() => {
+                const total = accounts.reduce((s, a) => s + a.balance, 0)
+                return (total >= 0 ? '' : '−') + new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(Math.abs(total))
+              })()}
+            </p>
+            <div className="mt-2 space-y-0.5">
+              {accounts.slice(0, 3).map(a => (
+                <p key={a.id} className="text-xs text-white/30">
+                  {a.icon} {a.name}: <span className={a.balance >= 0 ? 'text-accent-green/60' : 'text-accent-red/60'}>
+                    {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(a.balance)}
+                  </span>
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Charts */}

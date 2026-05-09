@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { db } from '../db/client'
-import { incomeTransactions, expenseTransactions, expenseCategories } from '../db/schema'
+import { incomeTransactions, expenseTransactions, expenseCategories, incomeCategories } from '../db/schema'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
 import { authenticate } from '../middleware/authenticate'
 
@@ -216,6 +216,140 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
     })
 
     return reply.send(data)
+  })
+
+  // Categories breakdown with transactions
+  fastify.get('/api/analytics/categories', { preHandler: [authenticate] }, async (req, reply) => {
+    const { type, from, to, accountId } = req.query as any
+    const householdId = (req.user as any).householdId
+
+    if (!type || (type !== 'income' && type !== 'expense')) {
+      return reply.code(400).send({ error: 'type must be income or expense' })
+    }
+
+    if (type === 'expense') {
+      const conditions: any[] = [eq(expenseTransactions.householdId, householdId)]
+      if (from) conditions.push(gte(expenseTransactions.date, from))
+      if (to) conditions.push(lte(expenseTransactions.date, to))
+      if (accountId) conditions.push(eq(expenseTransactions.accountId, parseInt(accountId)))
+
+      const txRows = await db.select({
+        id: expenseTransactions.id,
+        date: expenseTransactions.date,
+        description: expenseTransactions.description,
+        amount: expenseTransactions.amount,
+        subcategory: expenseTransactions.subcategory,
+        accountId: expenseTransactions.accountId,
+        categoryId: expenseTransactions.categoryId,
+        categoryName: expenseCategories.name,
+        categoryColor: expenseCategories.color,
+        categoryIcon: expenseCategories.icon,
+      })
+        .from(expenseTransactions)
+        .leftJoin(expenseCategories, eq(expenseTransactions.categoryId, expenseCategories.id))
+        .where(and(...conditions))
+        .orderBy(expenseTransactions.date)
+
+      // Group by category
+      const catMap = new Map<number, {
+        categoryId: number
+        categoryName: string
+        categoryColor: string
+        categoryIcon: string
+        total: number
+        count: number
+        transactions: any[]
+      }>()
+
+      for (const row of txRows) {
+        const catId = row.categoryId
+        if (!catMap.has(catId)) {
+          catMap.set(catId, {
+            categoryId: catId,
+            categoryName: row.categoryName ?? 'Inconnu',
+            categoryColor: row.categoryColor ?? '#6366f1',
+            categoryIcon: row.categoryIcon ?? '💰',
+            total: 0,
+            count: 0,
+            transactions: [],
+          })
+        }
+        const entry = catMap.get(catId)!
+        entry.total += row.amount
+        entry.count += 1
+        entry.transactions.push({
+          id: row.id,
+          date: row.date,
+          description: row.description,
+          amount: row.amount,
+          subcategory: row.subcategory,
+          accountId: row.accountId,
+        })
+      }
+
+      const result = Array.from(catMap.values()).sort((a, b) => b.total - a.total)
+      return reply.send(result)
+    } else {
+      // income
+      const conditions: any[] = [eq(incomeTransactions.householdId, householdId)]
+      if (from) conditions.push(gte(incomeTransactions.date, from))
+      if (to) conditions.push(lte(incomeTransactions.date, to))
+      if (accountId) conditions.push(eq(incomeTransactions.accountId, parseInt(accountId)))
+
+      const txRows = await db.select({
+        id: incomeTransactions.id,
+        date: incomeTransactions.date,
+        description: incomeTransactions.description,
+        amount: incomeTransactions.amount,
+        subcategory: incomeTransactions.subcategory,
+        accountId: incomeTransactions.accountId,
+        categoryId: incomeTransactions.categoryId,
+        categoryName: incomeCategories.name,
+      })
+        .from(incomeTransactions)
+        .leftJoin(incomeCategories, eq(incomeTransactions.categoryId, incomeCategories.id))
+        .where(and(...conditions))
+        .orderBy(incomeTransactions.date)
+
+      const catMap = new Map<number, {
+        categoryId: number
+        categoryName: string
+        categoryColor: string
+        categoryIcon: string
+        total: number
+        count: number
+        transactions: any[]
+      }>()
+
+      for (const row of txRows) {
+        const catId = row.categoryId
+        if (!catMap.has(catId)) {
+          catMap.set(catId, {
+            categoryId: catId,
+            categoryName: row.categoryName ?? 'Inconnu',
+            categoryColor: '#22c55e',
+            categoryIcon: '💶',
+            total: 0,
+            count: 0,
+            transactions: [],
+          })
+        }
+        const entry = catMap.get(catId)!
+        entry.total += row.amount
+        entry.count += 1
+        entry.transactions.push({
+          id: row.id,
+          date: row.date,
+          description: row.description,
+          amount: row.amount,
+          subcategory: row.subcategory,
+          accountId: row.accountId,
+        })
+      }
+
+      const result = Array.from(catMap.values()).sort((a, b) => b.total - a.total)
+      return reply.send(result)
+    }
   })
 
   // Recent transactions (combined)
