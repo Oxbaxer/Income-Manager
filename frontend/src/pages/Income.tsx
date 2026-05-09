@@ -212,12 +212,18 @@ export function IncomePage() {
             <Input label="Type personnalisé" placeholder="Ex: Chèque" {...register('operationTypeCustom')} />
           )}
           <Input label="Sous-catégorie (optionnel)" placeholder="Ex: Salaire mensuel" {...register('subcategory')} />
-          {accounts.length > 0 && (
+          <div>
             <Select label="Compte (optionnel)" {...register('accountId')}>
               <option value="">— Aucun compte —</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
             </Select>
-          )}
+            {accounts.length === 0 && (
+              <p className="text-xs text-white/30 mt-1">
+                Aucun compte créé.{' '}
+                <a href="/comptes" className="text-primary hover:underline">Créer un compte →</a>
+              </p>
+            )}
+          </div>
 
           {/* Payslip toggle */}
           <label className="flex items-center gap-2 cursor-pointer">

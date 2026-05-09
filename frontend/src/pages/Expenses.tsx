@@ -189,12 +189,18 @@ export function ExpensesPage() {
             <Input label="Type personnalisé" placeholder="Ex: Chèque" {...register('operationTypeCustom')} />
           )}
           <Input label="Sous-catégorie (optionnel)" placeholder="Ex: Restauration rapide" {...register('subcategory')} />
-          {accounts.length > 0 && (
+          <div>
             <Select label="Compte (optionnel)" {...register('accountId')}>
               <option value="">— Aucun compte —</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
             </Select>
-          )}
+            {accounts.length === 0 && (
+              <p className="text-xs text-white/30 mt-1">
+                Aucun compte créé.{' '}
+                <a href="/comptes" className="text-primary hover:underline">Créer un compte →</a>
+              </p>
+            )}
+          </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" type="button" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button type="submit" loading={isSubmitting}>{t('common.save')}</Button>
