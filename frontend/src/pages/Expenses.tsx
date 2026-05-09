@@ -39,9 +39,65 @@ export function ExpensesPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [editQueue, setEditQueue] = useState<number[]>([])
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<number[] | null>(null)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const LIMIT = 20
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const allVisible = transactions.map(t => t.id)
+      const allSelected = allVisible.length > 0 && allVisible.every(id => prev.has(id))
+      const next = new Set(prev)
+      if (allSelected) {
+        for (const id of allVisible) next.delete(id)
+      } else {
+        for (const id of allVisible) next.add(id)
+      }
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelectedIds(new Set())
+
+  async function confirmDelete() {
+    if (!pendingDeleteIds || pendingDeleteIds.length === 0) return
+    setBulkDeleting(true)
+    try {
+      await api.post('/api/expenses/bulk-delete', { ids: pendingDeleteIds })
+      // If we deleted what was selected, clear selection
+      if (pendingDeleteIds.some(id => selectedIds.has(id))) {
+        setSelectedIds(prev => {
+          const next = new Set(prev)
+          for (const id of pendingDeleteIds) next.delete(id)
+          return next
+        })
+      }
+      setPendingDeleteIds(null)
+      setRefreshKey(k => k + 1)
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  function startSequentialEdit() {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    setEditQueue(ids)
+    const firstId = ids[0]
+    const tx = transactions.find(t => t.id === firstId)
+    if (tx) openEdit(tx)
+  }
 
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -96,14 +152,21 @@ export function ExpensesPage() {
     } else {
       await api.post('/api/expenses', payload)
     }
+    // Sequential edit: pop next from queue
+    if (editQueue.length > 1) {
+      const remaining = editQueue.slice(1)
+      setEditQueue(remaining)
+      // Refresh data, then open the next item
+      const res = await api.get<PaginatedResponse<ExpenseTransaction>>(`/api/expenses?page=${page}&limit=${LIMIT}${filterAccountId ? `&accountId=${filterAccountId}` : ''}`)
+      setTransactions(res.data)
+      const nextTx = res.data.find(t => t.id === remaining[0])
+      if (nextTx) {
+        openEdit(nextTx)
+        return
+      }
+    }
+    setEditQueue([])
     setModalOpen(false)
-    setRefreshKey(k => k + 1)
-  }
-
-  async function onDelete() {
-    if (!deleteId) return
-    await api.delete(`/api/expenses/${deleteId}`)
-    setDeleteId(null)
     setRefreshKey(k => k + 1)
   }
 
@@ -124,6 +187,7 @@ export function ExpensesPage() {
             >
               <option value="">Tous les comptes</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+              <option value="null">— Sans compte —</option>
             </select>
           </div>
         )}
@@ -134,6 +198,14 @@ export function ExpensesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
+                <th className="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded accent-primary cursor-pointer"
+                    checked={transactions.length > 0 && transactions.every(t => selectedIds.has(t.id))}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">{t('expenses.date')}</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">{t('expenses.category')}</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-white/40 uppercase tracking-wider">{t('expenses.description')}</th>
@@ -143,9 +215,17 @@ export function ExpensesPage() {
             </thead>
             <tbody>
               {transactions.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-white/30">{t('common.noData')}</td></tr>
+                <tr><td colSpan={6} className="text-center py-12 text-white/30">{t('common.noData')}</td></tr>
               ) : transactions.map(tx => (
-                <tr key={tx.id} className="border-b border-border/50 hover:bg-white/2 transition-colors">
+                <tr key={tx.id} className={`border-b border-border/50 hover:bg-white/2 transition-colors ${selectedIds.has(tx.id) ? 'bg-primary/5' : ''}`}>
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded accent-primary cursor-pointer"
+                      checked={selectedIds.has(tx.id)}
+                      onChange={() => toggleSelect(tx.id)}
+                    />
+                  </td>
                   <td className="px-4 py-3 text-white/60 font-mono text-xs">{formatDate(tx.date)}</td>
                   <td className="px-4 py-3">
                     <span
@@ -166,7 +246,7 @@ export function ExpensesPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(tx)}>✏️</Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:text-accent-red" onClick={() => setDeleteId(tx.id)}>🗑️</Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:text-accent-red" onClick={() => setPendingDeleteIds([tx.id])}>🗑️</Button>
                     </div>
                   </td>
                 </tr>
@@ -184,7 +264,20 @@ export function ExpensesPage() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editId ? t('expenses.edit') : t('expenses.add')}>
+      {/* Floating action bar for multi-select */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-surface border border-border rounded-xl shadow-2xl px-5 py-3 flex items-center gap-3">
+          <span className="text-sm text-white">
+            <strong>{selectedIds.size}</strong> sélectionnée{selectedIds.size > 1 ? 's' : ''}
+          </span>
+          <div className="h-6 w-px bg-border" />
+          <Button variant="ghost" size="sm" onClick={startSequentialEdit}>✏️ Éditer</Button>
+          <Button variant="danger" size="sm" onClick={() => setPendingDeleteIds(Array.from(selectedIds))}>🗑️ Supprimer</Button>
+          <Button variant="outline" size="sm" onClick={clearSelection}>Annuler</Button>
+        </div>
+      )}
+
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditQueue([]) }} title={editQueue.length > 1 ? `${t('expenses.edit')} (${editQueue.length} restantes)` : (editId ? t('expenses.edit') : t('expenses.add'))}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('expenses.amount')} type="number" step="0.01" placeholder="0.00" error={errors.amount?.message} {...register('amount')} />
@@ -224,11 +317,15 @@ export function ExpensesPage() {
         </form>
       </Modal>
 
-      <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title={t('common.confirm')}>
-        <p className="text-white/70 mb-6">Supprimer cette dépense ?</p>
+      <Modal open={pendingDeleteIds !== null} onClose={() => !bulkDeleting && setPendingDeleteIds(null)} title={t('common.confirm')}>
+        <p className="text-white/70 mb-6">
+          {pendingDeleteIds && pendingDeleteIds.length === 1
+            ? 'Supprimer cette dépense ?'
+            : <>Supprimer <strong className="text-white">{pendingDeleteIds?.length}</strong> dépenses ? Cette action est irréversible.</>}
+        </p>
         <div className="flex justify-end gap-3">
-          <Button variant="ghost" onClick={() => setDeleteId(null)}>{t('common.cancel')}</Button>
-          <Button variant="danger" onClick={onDelete}>{t('common.delete')}</Button>
+          <Button variant="ghost" onClick={() => setPendingDeleteIds(null)} disabled={bulkDeleting}>{t('common.cancel')}</Button>
+          <Button variant="danger" onClick={confirmDelete} loading={bulkDeleting}>{t('common.delete')}</Button>
         </div>
       </Modal>
     </PageShell>

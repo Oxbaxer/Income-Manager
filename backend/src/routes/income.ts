@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/client'
 import { incomeTransactions, payslipDetails, incomeCategories } from '../db/schema'
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql, isNull } from 'drizzle-orm'
 import { authenticate } from '../middleware/authenticate'
 
 const transactionSchema = z.object({
@@ -39,7 +39,11 @@ export async function incomeRoutes(fastify: FastifyInstance) {
     if (categoryId) conditions.push(eq(incomeTransactions.categoryId, parseInt(categoryId)))
     if (from) conditions.push(gte(incomeTransactions.date, from))
     if (to) conditions.push(lte(incomeTransactions.date, to))
-    if (accountId) conditions.push(eq(incomeTransactions.accountId, parseInt(accountId)))
+    if (accountId === 'null' || accountId === 'none') {
+      conditions.push(isNull(incomeTransactions.accountId))
+    } else if (accountId) {
+      conditions.push(eq(incomeTransactions.accountId, parseInt(accountId)))
+    }
 
     const [rows, countRow] = await Promise.all([
       db.select({
@@ -137,6 +141,20 @@ export async function incomeRoutes(fastify: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: 'Not found' })
     await db.delete(incomeTransactions).where(eq(incomeTransactions.id, id))
     return reply.send({ ok: true })
+  })
+
+  // Bulk delete
+  fastify.post('/api/income/bulk-delete', { preHandler: [authenticate] }, async (req, reply) => {
+    const body = z.object({ ids: z.array(z.number().int().positive()).min(1) }).safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+    const householdId = (req.user as any).householdId
+    const result = await db.delete(incomeTransactions)
+      .where(and(
+        eq(incomeTransactions.householdId, householdId),
+        sql`${incomeTransactions.id} IN (${sql.join(body.data.ids.map(id => sql`${id}`), sql`, `)})`,
+      ))
+      .returning({ id: incomeTransactions.id })
+    return reply.send({ deleted: result.length })
   })
 
   // Categories
