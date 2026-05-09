@@ -47,14 +47,31 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
     const accountId = body.data.accountId ?? null
 
     let imported = 0
-    let skipped = 0
     const errors: string[] = []
+    type SkippedRow = {
+      date: string
+      description: string
+      amount: number
+      reason: string
+    }
+    const skippedRows: SkippedRow[] = []
+    const skippedCounts: Record<string, number> = {}
+
+    function recordSkip(row: typeof body.data.rows[0], amount: number, reason: string) {
+      skippedRows.push({
+        date: row.date,
+        description: row.libelleSimple.trim() || row.libelleOperation.trim() || '',
+        amount,
+        reason,
+      })
+      skippedCounts[reason] = (skippedCounts[reason] || 0) + 1
+    }
 
     for (const row of body.data.rows) {
       try {
         // Skip only truly empty rows
-        if (!row.date && !row.libelleSimple) {
-          skipped++
+        if (!row.date && !row.libelleSimple && !row.libelleOperation) {
+          recordSkip(row, 0, 'Ligne vide')
           continue
         }
 
@@ -78,18 +95,7 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
             cat = created
           }
 
-          // Skip if an identical transaction already exists (date + description + amount + category)
           const description = row.libelleSimple.trim() || row.libelleOperation.trim() || 'Import CSV'
-          const existing = await db.query.incomeTransactions.findFirst({
-            where: (t, { eq, and }) => and(
-              eq(t.householdId, householdId),
-              eq(t.date, date),
-              eq(t.description, description),
-              eq(t.amount, creditAmount),
-              eq(t.categoryId, cat.id),
-            ),
-          })
-          if (existing) { skipped++; continue }
 
           await db.insert(incomeTransactions).values({
             householdId,
@@ -122,18 +128,7 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
             cat = created
           }
 
-          // Skip if an identical transaction already exists (date + description + amount + category)
           const description = row.libelleSimple.trim() || row.libelleOperation.trim() || 'Import CSV'
-          const existing = await db.query.expenseTransactions.findFirst({
-            where: (t, { eq, and }) => and(
-              eq(t.householdId, householdId),
-              eq(t.date, date),
-              eq(t.description, description),
-              eq(t.amount, debitAmount),
-              eq(t.categoryId, cat.id),
-            ),
-          })
-          if (existing) { skipped++; continue }
 
           await db.insert(expenseTransactions).values({
             householdId,
@@ -151,13 +146,19 @@ export async function importCsvRoutes(fastify: FastifyInstance) {
           })
           imported++
         } else {
-          skipped++
+          recordSkip(row, 0, 'Aucun montant (débit et crédit vides ou nuls)')
         }
       } catch (e: any) {
         errors.push(`Ligne "${row.libelleSimple}": ${e?.message ?? String(e)}`)
       }
     }
 
-    return reply.send({ imported, skipped, errors })
+    return reply.send({
+      imported,
+      skipped: skippedRows.length,
+      errors,
+      skippedDetails: skippedRows,
+      skippedCounts,
+    })
   })
 }
