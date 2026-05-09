@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -40,6 +40,7 @@ export function ExpensesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
   const LIMIT = 20
 
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -49,21 +50,21 @@ export function ExpensesPage() {
 
   const operationType = watch('operationType')
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
     const accountParam = filterAccountId ? `&accountId=${filterAccountId}` : ''
-    const [res, cats, accs] = await Promise.all([
+    Promise.all([
       api.get<PaginatedResponse<ExpenseTransaction>>(`/api/expenses?page=${page}&limit=${LIMIT}${accountParam}`),
       api.get<ExpenseCategory[]>('/api/expenses/categories'),
       api.get<Account[]>('/api/accounts').catch(() => [] as Account[]),
-    ])
-    setTransactions(res.data)
-    setTotal(res.total)
-    setTotalPages(Math.ceil(res.total / LIMIT))
-    setCategories(cats)
-    setAccounts(accs)
-  }, [page, filterAccountId])
-
-  useEffect(() => { loadData() }, [loadData])
+    ]).then(([res, cats, accs]) => {
+      setTransactions(res.data)
+      setTotal(res.total)
+      setTotalPages(Math.ceil(res.total / LIMIT))
+      setCategories(cats)
+      setAccounts(accs)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterAccountId, refreshKey])
 
   function openCreate() { reset({ date: new Date().toISOString().split('T')[0] }); setEditId(null); setModalOpen(true) }
 
@@ -96,14 +97,14 @@ export function ExpensesPage() {
       await api.post('/api/expenses', payload)
     }
     setModalOpen(false)
-    loadData()
+    setRefreshKey(k => k + 1)
   }
 
   async function onDelete() {
     if (!deleteId) return
     await api.delete(`/api/expenses/${deleteId}`)
     setDeleteId(null)
-    loadData()
+    setRefreshKey(k => k + 1)
   }
 
   return (
