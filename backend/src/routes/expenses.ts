@@ -25,7 +25,7 @@ const categorySchema = z.object({
 export async function expenseRoutes(fastify: FastifyInstance) {
   // List transactions
   fastify.get('/api/expenses', { preHandler: [authenticate] }, async (req, reply) => {
-    const { page = '1', limit = '20', categoryId, from, to } = req.query as any
+    const { page = '1', limit = '20', categoryId, from, to, accountId } = req.query as any
     const householdId = (req.user as any).householdId
     const offset = (parseInt(page) - 1) * parseInt(limit)
 
@@ -33,6 +33,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     if (categoryId) conditions.push(eq(expenseTransactions.categoryId, parseInt(categoryId)))
     if (from) conditions.push(gte(expenseTransactions.date, from))
     if (to) conditions.push(lte(expenseTransactions.date, to))
+    if (accountId) conditions.push(eq(expenseTransactions.accountId, parseInt(accountId)))
 
     const [rows, countRow] = await Promise.all([
       db.select({
