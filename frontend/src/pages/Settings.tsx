@@ -103,7 +103,14 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string>('')
   const [categoryMapping, setCategoryMapping] = useState<Record<string, string>>({}) // csvCat -> 'CREATE' or 'existing name'
-  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
+  const [result, setResult] = useState<{
+    imported: number
+    skipped: number
+    errors: string[]
+    skippedDetails?: { date: string; description: string; amount: number; reason: string }[]
+    skippedCounts?: Record<string, number>
+  } | null>(null)
+  const [showSkippedDetails, setShowSkippedDetails] = useState(false)
   const [importing, setImporting] = useState(false)
   const [fileError, setFileError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -427,6 +434,55 @@ function ImportCsvModal({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                 </div>
+
+                {/* Skipped recap */}
+                {result.skipped > 0 && result.skippedCounts && (
+                  <div className="p-4 rounded-lg border border-border bg-surface-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-white">Récap des transactions ignorées</p>
+                      <button
+                        onClick={() => setShowSkippedDetails(v => !v)}
+                        className="text-xs text-primary hover:text-primary-light"
+                      >
+                        {showSkippedDetails ? 'Masquer le détail' : 'Voir le détail'}
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {Object.entries(result.skippedCounts).map(([reason, count]) => (
+                        <div key={reason} className="flex items-center justify-between text-xs">
+                          <span className="text-white/60">{reason}</span>
+                          <span className="text-white/40 font-mono">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {showSkippedDetails && result.skippedDetails && result.skippedDetails.length > 0 && (
+                      <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-border/50">
+                        <table className="w-full text-xs">
+                          <thead className="bg-surface sticky top-0">
+                            <tr>
+                              <th className="text-left px-2 py-1.5 text-white/40 font-medium">Date</th>
+                              <th className="text-left px-2 py-1.5 text-white/40 font-medium">Libellé</th>
+                              <th className="text-right px-2 py-1.5 text-white/40 font-medium">Montant</th>
+                              <th className="text-left px-2 py-1.5 text-white/40 font-medium">Raison</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.skippedDetails.map((s, i) => (
+                              <tr key={i} className="border-t border-border/30">
+                                <td className="px-2 py-1.5 text-white/60 font-mono">{s.date || '—'}</td>
+                                <td className="px-2 py-1.5 text-white/70 max-w-[180px] truncate" title={s.description}>{s.description || '—'}</td>
+                                <td className="px-2 py-1.5 text-right text-white/60 font-mono">{s.amount > 0 ? s.amount.toFixed(2) : '—'}</td>
+                                <td className="px-2 py-1.5 text-white/50">{s.reason}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-end">
                   <button onClick={onClose} className="px-4 py-2 rounded-lg bg-primary/20 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/30 transition-all">
                     Fermer
@@ -1024,8 +1080,6 @@ export function SettingsPage() {
   const [resetResult, setResetResult] = useState<string>('')
   const [wipeAllOpen, setWipeAllOpen] = useState(false)
   const [wipeAllConfirm, setWipeAllConfirm] = useState('')
-  const [dedupeRunning, setDedupeRunning] = useState(false)
-  const [dedupeResult, setDedupeResult] = useState('')
 
   useEffect(() => {
     api.get<Account[]>('/api/accounts').then(setExportAccounts).catch(() => {})
@@ -1070,24 +1124,6 @@ export function SettingsPage() {
     setWipeAllOpen(false)
     setWipeAllConfirm('')
     setResetResult('')
-  }
-
-  const handleDedupe = async () => {
-    setDedupeRunning(true)
-    setDedupeResult('')
-    try {
-      const res = await api.post<{ deletedExpenses: number; deletedIncome: number }>('/api/accounts/deduplicate', {})
-      const total = res.deletedExpenses + res.deletedIncome
-      if (total === 0) {
-        setDedupeResult('✅ Aucun doublon détecté.')
-      } else {
-        setDedupeResult(`✅ ${res.deletedExpenses} dépense(s) et ${res.deletedIncome} revenu(s) en doublon supprimés.`)
-      }
-    } catch (e: any) {
-      setDedupeResult(`❌ ${e?.error || e?.message || 'Erreur'}`)
-    } finally {
-      setDedupeRunning(false)
-    }
   }
 
   const handleExport = async () => {
@@ -1271,23 +1307,6 @@ export function SettingsPage() {
               </div>
             </>
           )}
-
-          {/* Deduplicate */}
-          <div className="border-t border-border/50 pt-4 mb-4">
-            <p className="text-xs text-white/40 mb-3">
-              <strong className="text-white/70">Supprimer les doublons</strong> — détecte les transactions identiques (même date, libellé, montant et catégorie) et garde uniquement la plus ancienne. Utile après plusieurs imports successifs du même CSV.
-            </p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <button
-                onClick={handleDedupe}
-                disabled={dedupeRunning}
-                className="px-4 py-2 bg-yellow-400/10 text-yellow-400 border border-yellow-400/40 rounded-lg text-sm font-medium hover:bg-yellow-400/20 transition-all disabled:opacity-50"
-              >
-                {dedupeRunning ? '⏳ Analyse en cours...' : '🧹 Supprimer les doublons'}
-              </button>
-              {dedupeResult && <span className="text-xs text-white/70">{dedupeResult}</span>}
-            </div>
-          </div>
 
           {/* Global wipe */}
           <div className="border-t border-border/50 pt-4">
