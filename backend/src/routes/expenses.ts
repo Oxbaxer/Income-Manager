@@ -136,6 +136,60 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     return reply.send({ deleted: result.length })
   })
 
+  // List ALL ids matching current filters (no pagination) — used by "select all filtered"
+  fastify.get('/api/expenses/all-ids', { preHandler: [authenticate] }, async (req, reply) => {
+    const { categoryId, from, to, accountId } = req.query as any
+    const householdId = (req.user as any).householdId
+
+    const conditions = [eq(expenseTransactions.householdId, householdId)]
+    if (categoryId) conditions.push(eq(expenseTransactions.categoryId, parseInt(categoryId)))
+    if (from) conditions.push(gte(expenseTransactions.date, from))
+    if (to) conditions.push(lte(expenseTransactions.date, to))
+    if (accountId === 'null' || accountId === 'none') {
+      conditions.push(isNull(expenseTransactions.accountId))
+    } else if (accountId) {
+      conditions.push(eq(expenseTransactions.accountId, parseInt(accountId)))
+    }
+
+    const rows = await db.select({ id: expenseTransactions.id })
+      .from(expenseTransactions)
+      .where(and(...conditions))
+
+    return reply.send({ ids: rows.map(r => r.id) })
+  })
+
+  // Bulk update (re-categorize, reassign account)
+  fastify.post('/api/expenses/bulk-update', { preHandler: [authenticate] }, async (req, reply) => {
+    const body = z.object({
+      ids: z.array(z.number().int().positive()).min(1),
+      data: z.object({
+        categoryId: z.number().int().positive().optional(),
+        accountId: z.number().int().positive().nullable().optional(),
+      }),
+    }).safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
+    const householdId = (req.user as any).householdId
+
+    const updateData: any = { updatedAt: new Date().toISOString() }
+    if (body.data.data.categoryId !== undefined) updateData.categoryId = body.data.data.categoryId
+    if (body.data.data.accountId !== undefined) updateData.accountId = body.data.data.accountId
+
+    const CHUNK = 500
+    let updated = 0
+    for (let i = 0; i < body.data.ids.length; i += CHUNK) {
+      const chunk = body.data.ids.slice(i, i + CHUNK)
+      const result = await db.update(expenseTransactions)
+        .set(updateData)
+        .where(and(
+          eq(expenseTransactions.householdId, householdId),
+          sql`${expenseTransactions.id} IN (${sql.join(chunk.map(id => sql`${id}`), sql`, `)})`,
+        ))
+        .returning({ id: expenseTransactions.id })
+      updated += result.length
+    }
+    return reply.send({ updated })
+  })
+
   // Categories
   fastify.get('/api/expenses/categories', { preHandler: [authenticate] }, async (req, reply) => {
     const cats = await db.select().from(expenseCategories)
