@@ -41,6 +41,11 @@ export function IncomePage() {
   const [categories, setCategories] = useState<IncomeCategory[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [filterAccountId, setFilterAccountId] = useState<string>('')
+  const [filterCategoryId, setFilterCategoryId] = useState<string>('')
+  const [recategorizeOpen, setRecategorizeOpen] = useState(false)
+  const [recategorizeTargetId, setRecategorizeTargetId] = useState<string>('')
+  const [recategorizing, setRecategorizing] = useState(false)
+  const [selectingAllFiltered, setSelectingAllFiltered] = useState(false)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -105,6 +110,41 @@ export function IncomePage() {
     if (tx) openEdit(tx)
   }
 
+  function buildFilterQuery(): string {
+    const params = new URLSearchParams()
+    if (filterAccountId) params.set('accountId', filterAccountId)
+    if (filterCategoryId) params.set('categoryId', filterCategoryId)
+    return params.toString()
+  }
+
+  async function selectAllFiltered() {
+    setSelectingAllFiltered(true)
+    try {
+      const qs = buildFilterQuery()
+      const res = await api.get<{ ids: number[] }>(`/api/income/all-ids${qs ? `?${qs}` : ''}`)
+      setSelectedIds(new Set(res.ids))
+    } finally {
+      setSelectingAllFiltered(false)
+    }
+  }
+
+  async function applyRecategorize() {
+    if (!recategorizeTargetId || selectedIds.size === 0) return
+    setRecategorizing(true)
+    try {
+      await api.post('/api/income/bulk-update', {
+        ids: Array.from(selectedIds),
+        data: { categoryId: parseInt(recategorizeTargetId) },
+      })
+      setRecategorizeOpen(false)
+      setRecategorizeTargetId('')
+      clearSelection()
+      setRefreshKey(k => k + 1)
+    } finally {
+      setRecategorizing(false)
+    }
+  }
+
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0], isPayslip: false },
@@ -114,9 +154,11 @@ export function IncomePage() {
   const operationType = watch('operationType')
 
   useEffect(() => {
-    const accountParam = filterAccountId ? `&accountId=${filterAccountId}` : ''
+    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
+    if (filterAccountId) params.set('accountId', filterAccountId)
+    if (filterCategoryId) params.set('categoryId', filterCategoryId)
     Promise.all([
-      api.get<PaginatedResponse<IncomeTransaction>>(`/api/income?page=${page}&limit=${LIMIT}${accountParam}`),
+      api.get<PaginatedResponse<IncomeTransaction>>(`/api/income?${params.toString()}`),
       api.get<IncomeCategory[]>('/api/income/categories'),
       api.get<Account[]>('/api/accounts').catch(() => [] as Account[]),
     ]).then(([res, cats, accs]) => {
@@ -127,7 +169,7 @@ export function IncomePage() {
       setAccounts(accs)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filterAccountId, refreshKey])
+  }, [page, filterAccountId, filterCategoryId, refreshKey])
 
   function openCreate() { reset({ date: new Date().toISOString().split('T')[0], isPayslip: false }); setEditId(null); setModalOpen(true) }
 
@@ -191,11 +233,22 @@ export function IncomePage() {
       title={t('income.title')}
       action={<Button onClick={openCreate} size="sm">+ {t('income.add')}</Button>}
     >
-      {/* Summary + account filter */}
+      {/* Summary + filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <p className="text-sm text-white/50 flex-1">
           {total} {total > 1 ? 'transactions' : 'transaction'}
         </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-white/40">Catégorie :</span>
+          <select
+            value={filterCategoryId}
+            onChange={e => { setFilterCategoryId(e.target.value); setPage(1) }}
+            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50 max-w-[220px]"
+          >
+            <option value="">Toutes les catégories</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
         {accounts.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-white/40">Compte :</span>
@@ -211,6 +264,26 @@ export function IncomePage() {
           </div>
         )}
       </div>
+
+      {/* Select-all-filtered banner */}
+      {(filterCategoryId || filterAccountId) && total > transactions.length && (
+        <div className="mb-3 p-2.5 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-white/70">
+            {selectedIds.size > 0 && transactions.every(t => selectedIds.has(t.id)) ? (
+              <>Toutes les transactions visibles sont sélectionnées (<strong>{transactions.length}</strong>). Pour sélectionner les <strong>{total}</strong> transactions correspondant au filtre :</>
+            ) : (
+              <>Le filtre actuel correspond à <strong>{total}</strong> transactions, dont <strong>{transactions.length}</strong> sont visibles sur cette page.</>
+            )}
+          </p>
+          <button
+            onClick={selectAllFiltered}
+            disabled={selectingAllFiltered}
+            className="px-3 py-1.5 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-medium hover:bg-primary/30 transition-all disabled:opacity-50 flex-shrink-0"
+          >
+            {selectingAllFiltered ? '⏳ Sélection...' : `Sélectionner les ${total}`}
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <Card className="p-0 overflow-hidden">
@@ -286,6 +359,7 @@ export function IncomePage() {
             <strong>{selectedIds.size}</strong> sélectionnée{selectedIds.size > 1 ? 's' : ''}
           </span>
           <div className="h-6 w-px bg-border" />
+          <Button variant="ghost" size="sm" onClick={() => setRecategorizeOpen(true)}>🏷️ Recatégoriser</Button>
           <Button variant="ghost" size="sm" onClick={startSequentialEdit}>✏️ Éditer</Button>
           <Button variant="danger" size="sm" onClick={() => setPendingDeleteIds(Array.from(selectedIds))}>🗑️ Supprimer</Button>
           <Button variant="outline" size="sm" onClick={clearSelection}>Annuler</Button>
@@ -356,6 +430,39 @@ export function IncomePage() {
             <Button type="submit" loading={isSubmitting}>{t('common.save')}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Recategorize modal */}
+      <Modal
+        open={recategorizeOpen}
+        onClose={() => !recategorizing && setRecategorizeOpen(false)}
+        title="Recatégoriser la sélection"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-white/70">
+            Affecter une nouvelle catégorie à <strong className="text-white">{selectedIds.size}</strong> transaction{selectedIds.size > 1 ? 's' : ''}.
+          </p>
+          <Select
+            label="Nouvelle catégorie"
+            value={recategorizeTargetId}
+            onChange={e => setRecategorizeTargetId(e.target.value)}
+          >
+            <option value="">— Choisir —</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setRecategorizeOpen(false)} disabled={recategorizing}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={applyRecategorize}
+              loading={recategorizing}
+              disabled={!recategorizeTargetId}
+            >
+              Appliquer
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Delete confirm (unifié — single + bulk) */}
