@@ -33,6 +33,7 @@ export function ExpensesPage() {
   const [transactions, setTransactions] = useState<ExpenseTransaction[]>([])
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [filterAccountId, setFilterAccountId] = useState<string>('')
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -49,8 +50,9 @@ export function ExpensesPage() {
   const operationType = watch('operationType')
 
   const loadData = useCallback(async () => {
+    const accountParam = filterAccountId ? `&accountId=${filterAccountId}` : ''
     const [res, cats, accs] = await Promise.all([
-      api.get<PaginatedResponse<ExpenseTransaction>>(`/api/expenses?page=${page}&limit=${LIMIT}`),
+      api.get<PaginatedResponse<ExpenseTransaction>>(`/api/expenses?page=${page}&limit=${LIMIT}${accountParam}`),
       api.get<ExpenseCategory[]>('/api/expenses/categories'),
       api.get<Account[]>('/api/accounts').catch(() => [] as Account[]),
     ])
@@ -59,7 +61,7 @@ export function ExpensesPage() {
     setTotalPages(Math.ceil(res.total / LIMIT))
     setCategories(cats)
     setAccounts(accs)
-  }, [page])
+  }, [page, filterAccountId])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -109,8 +111,21 @@ export function ExpensesPage() {
       title={t('expenses.title')}
       action={<Button onClick={openCreate} size="sm">+ {t('expenses.add')}</Button>}
     >
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-white/50">{total} {total > 1 ? 'transactions' : 'transaction'}</p>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <p className="text-sm text-white/50 flex-1">{total} {total > 1 ? 'transactions' : 'transaction'}</p>
+        {accounts.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-white/40">Compte :</span>
+            <select
+              value={filterAccountId}
+              onChange={e => { setFilterAccountId(e.target.value); setPage(1) }}
+              className="bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50"
+            >
+              <option value="">Tous les comptes</option>
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <Card className="p-0 overflow-hidden">
